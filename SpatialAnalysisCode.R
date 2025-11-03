@@ -1504,6 +1504,31 @@ lo <- loess(TS.thin.y.mean~TS.thin.x.mean)
 lines(y = predict(lo), x = TS.thin.x.mean[1:length(predict(lo))], col = "red", lwd = 2)
 
 #### splitting rf model into multiple - western USA ####
+library(terra)
+library(dplyr)
+library(caret)
+library(randomForest)
+library(pROC)
+
+setwd("D:/Outside Boundary")
+Engaged_Lines <- read.csv("Engaged_Lines_DisturbanceHistory.csv")
+colnames(Engaged_Lines)
+Engaged_Lines <- Engaged_Lines[,c(31,32,34:38,28,29)]
+head(Engaged_Lines)
+
+str(Engaged_Lines)
+Engaged_Lines$stat <- as.factor(Engaged_Lines$stat)
+Engaged_Lines$year <- as.factor(Engaged_Lines$year)
+Engaged_Lines$trt <- as.factor(Engaged_Lines$trt)
+
+Engaged_Lines$prop.rx[is.na(Engaged_Lines$prop.rx)] <- 0
+Engaged_Lines$prop.thin[is.na(Engaged_Lines$prop.thin)] <- 0
+gc()
+
+max(Engaged_Lines$TS.rx,na.rm = TRUE)
+max(Engaged_Lines$TS.thin,na.rm = TRUE)
+Engaged_Lines$TS.rx[is.na(Engaged_Lines$TS.rx)] <- 30 ## trying to get the max year just outside bounds
+Engaged_Lines$TS.thin[is.na(Engaged_Lines$TS.thin)] <- 30
 
 ## Random Forest - western spatial scale
 n <- 100 # number of iterations
@@ -1680,7 +1705,7 @@ for(i in 1:n){
 }
 
 ## pred vs obs plot
-par(mfrow = c(1,1))
+par(mfrow = c(1,2))
 y_hats1.diff <- y_hats1.diff*100 ## converting to %
 max(y_hats1.diff);min(y_hats1.diff)
 plot(x = 1:length(y_hats1.diff), y = y_hats1.diff,
@@ -1688,6 +1713,7 @@ plot(x = 1:length(y_hats1.diff), y = y_hats1.diff,
      xlab = "model run",
      ylim = c(min(y_hats1.diff)-5,max(y_hats1.diff)+5),
      las = 1,
+     main = "Space + Time",
      ylab = "% Difference in Predicted vs.Observed",
      cex = 1)
 round(mean(y_hats1.diff), digits = 3)
@@ -1701,6 +1727,7 @@ plot(x = 1:length(y_hats2.diff), y = y_hats2.diff,
      xlab = "model run",
      ylim = c(min(y_hats2.diff)-5,max(y_hats2.diff)+5),
      las = 1,
+     main = "Treatments",
      ylab = "% Difference in Predicted vs.Observed",
      cex = 1)
 round(mean(y_hats2.diff), digits = 3)
@@ -1708,40 +1735,58 @@ abline(h = mean(y_hats2.diff), col="firebrick4", lty = 2)
 # text(x = 30, y = 50, "Average difference = 12.4%") 
 
 mean(balance1);min(balance1);max(balance1)
-# 0.740668
-# 0.7196563
-# 0.7655579
+# [1] 0.5117817
+# [1] 0.4999235
+# [1] 0.5246781
 
 mean(balance2);min(balance2);max(balance2)
-# 0.740668
-# 0.7196563
-# 0.7655579
+# [1] 0.4077722
+# [1] 0.3742344
+# [1] 0.4787582
 
 error.mean <- apply(error1,2,mean)
 min(error1);max(error1)
 plot(error.mean, type = "n",
      ylim = c(0,max(error1)+0.05),
      xlab = "Tree",
+     main = "Space + Year",
      ylab = "Error")
 for(i in 1:n){
   lines(error1[i,], col = rgb(0,0,0,alpha = 0.25))
 }
 lines(error.mean, type = "l", col = "firebrick", lty = 2, lwd= 2)
 mean(error.mean)*100
-text(x = 300, y = 0.18, "Average Error = __%")
+# text(x = 300, y = 0.18, "Average Error = __%")
 
 error.mean <- apply(error2,2,mean)
 min(error2);max(error2)
 plot(error.mean, type = "n",
      ylim = c(0,max(error2)+0.05),
      xlab = "Tree",
+     main = "Treatments",
      ylab = "Error")
 for(i in 1:n){
   lines(error2[i,], col = rgb(0,0,0,alpha = 0.25))
 }
 lines(error.mean, type = "l", col = "firebrick", lty = 2, lwd= 2)
 mean(error.mean)*100
-text(x = 300, y = 0.18, "Average Error = __%")
+# text(x = 300, y = 0.18, "Average Error = __%")
+
+par(mfrow = c(1,1))
+plot(x = c(1,2),
+     y = c(0,1),
+     las = 1,
+     xaxt = "n",
+     xlab = "",
+     ylab = "AUC",
+     type = "n")
+axis(1, at = c(1.2,1.8), line = 1, tick = F, labels = c("Space + Year", "Treatments"), cex.axis = 1.5)
+points(x = c(1.2,1.8),
+       y = c(mean(AUC.val1), mean(AUC.val2)),
+       pch = 16)
+segments(x0 = 1.2, y0 = max(AUC.val1), x1 = 1.2, y1 = min(AUC.val1))
+segments(x0 = 1.8, y0 = max(AUC.val2), x1 = 1.8, y1 = min(AUC.val2))
+abline(h = 0.5, lty = 2)
 
 mean(AUC.val1);min(AUC.val1);max(AUC.val1)
 # [1] 0.7642294
@@ -1762,7 +1807,7 @@ varImp.plotting1 <- varImp.plotting1[order(varImp.plotting1$mean, decreasing = F
 
 min(varImp.plotting1$min)
 max(varImp.plotting1$max)
-par(mfrow = c(1,1), oma = c(0,3,0,0))
+par(mfrow = c(1,2), oma = c(0,3,0,0))
 plot(varImp.plotting1$mean,
      ylim = c(0,3),
      xlim = c(0,max(varImp.plotting1$max)+5), ## max of varImp.plotting$max + a few
@@ -1785,7 +1830,7 @@ varImp.plotting2 <- varImp.plotting2[order(varImp.plotting2$mean, decreasing = F
 
 min(varImp.plotting2$min)
 max(varImp.plotting2$max)
-par(mfrow = c(1,1), oma = c(0,3,0,0))
+# par(mfrow = c(1,1), oma = c(0,3,0,0))
 plot(varImp.plotting2$mean,
      ylim = c(0,6),
      xlim = c(0,max(varImp.plotting2$max)+5), ## max of varImp.plotting$max + a few
@@ -2105,6 +2150,7 @@ for(i in 1:n){
 }
 
 ## pred vs obs plot
+par(mfrow = c(1,2))
 y_hats1.diff <- y_hats1.diff*100 ## converting to %
 max(y_hats1.diff);min(y_hats1.diff)
 plot(x = 1:length(y_hats1.diff), y = y_hats1.diff,
@@ -2112,11 +2158,12 @@ plot(x = 1:length(y_hats1.diff), y = y_hats1.diff,
      xlab = "model run",
      ylim = c(min(y_hats1.diff)-5,max(y_hats1.diff)+5),
      las = 1,
+     main = "Space + Time",
      ylab = "% Difference in Predicted vs.Observed",
      cex = 1)
 round(mean(y_hats1.diff), digits = 3)
 abline(h = mean(y_hats1.diff), col="firebrick4", lty = 2)
-text(x = 30, y = 50, "Average difference = __%") 
+# text(x = 30, y = 50, "Average difference = __%") 
 
 y_hats2.diff <- y_hats2.diff*100 ## converting to %
 max(y_hats2.diff);min(y_hats2.diff)
@@ -2125,47 +2172,66 @@ plot(x = 1:length(y_hats2.diff), y = y_hats2.diff,
      xlab = "model run",
      ylim = c(min(y_hats2.diff)-5,max(y_hats2.diff)+5),
      las = 1,
+     main = "Treatments",
      ylab = "% Difference in Predicted vs.Observed",
      cex = 1)
 round(mean(y_hats2.diff), digits = 3)
 abline(h = mean(y_hats2.diff), col="firebrick4", lty = 2)
-text(x = 30, y = 50, "Average difference = __%") 
+# text(x = 30, y = 50, "Average difference = __%") 
 
 mean(balance1);min(balance1);max(balance1)
-# 0.740668
-# 0.7196563
-# 0.7655579
+# [1] 0.6070943
+# [1] 0.5699896
+# [1] 0.6353383
 
 mean(balance2);min(balance2);max(balance2)
-# 0.740668
-# 0.7196563
-# 0.7655579
+# [1] 0.2862916
+# [1] 0.1567718
+# [1] 0.5031876
 
 error.mean <- apply(error1,2,mean)
 min(error1);max(error1)
 plot(error.mean, type = "n",
      ylim = c(0,max(error1)+0.05),
      xlab = "Tree",
+     main = "Space + Year",
      ylab = "Error")
 for(i in 1:n){
   lines(error1[i,], col = rgb(0,0,0,alpha = 0.25))
 }
 lines(error.mean, type = "l", col = "firebrick", lty = 2, lwd= 2)
 mean(error.mean)*100
-text(x = 300, y = 0.18, "Average Error = __%")
+# text(x = 300, y = 0.18, "Average Error = __%")
 
 error.mean <- apply(error2,2,mean)
 min(error2);max(error2)
 plot(error.mean, type = "n",
      ylim = c(0,max(error2)+0.05),
      xlab = "Tree",
+     main = "Treatments",
      ylab = "Error")
 for(i in 1:n){
   lines(error2[i,], col = rgb(0,0,0,alpha = 0.25))
 }
 lines(error.mean, type = "l", col = "firebrick", lty = 2, lwd= 2)
 mean(error.mean)*100
-text(x = 300, y = 0.18, "Average Error = __%")
+# text(x = 300, y = 0.18, "Average Error = __%")
+
+par(mfrow = c(1,1))
+plot(x = c(1,2),
+     y = c(0,1),
+     las = 1,
+     xaxt = "n",
+     xlab = "",
+     ylab = "AUC",
+     type = "n")
+axis(1, at = c(1.2,1.8), line = 1, tick = F, labels = c("Space + Year", "Treatments"), cex.axis = 1.5)
+points(x = c(1.2,1.8),
+       y = c(mean(AUC.val1), mean(AUC.val2)),
+       pch = 16)
+segments(x0 = 1.2, y0 = max(AUC.val1), x1 = 1.2, y1 = min(AUC.val1))
+segments(x0 = 1.8, y0 = max(AUC.val2), x1 = 1.8, y1 = min(AUC.val2))
+abline(h = 0.5, lty = 2)
 
 mean(AUC.val1);min(AUC.val1);max(AUC.val1)
 # [1] 0.9270905
@@ -2187,7 +2253,7 @@ varImp.plotting1 <- varImp.plotting1[order(varImp.plotting1$mean, decreasing = F
 
 min(varImp.plotting1$min)
 max(varImp.plotting1$max)
-par(mfrow = c(1,1), oma = c(0,3,0,0))
+par(mfrow = c(1,2), oma = c(0,3,0,0))
 plot(varImp.plotting1$mean,
      ylim = c(0,3),
      xlim = c(0,max(varImp.plotting1$max)+5), ## max of varImp.plotting$max + a few
@@ -2210,7 +2276,7 @@ varImp.plotting2 <- varImp.plotting2[order(varImp.plotting2$mean, decreasing = F
 
 min(varImp.plotting2$min)
 max(varImp.plotting2$max)
-par(mfrow = c(1,1), oma = c(0,3,0,0))
+# par(mfrow = c(1,1), oma = c(0,3,0,0))
 plot(varImp.plotting2$mean,
      ylim = c(0,6),
      xlim = c(0,max(varImp.plotting2$max)+5), ## max of varImp.plotting$max + a few
@@ -2332,12 +2398,13 @@ lines(y = predict(lo), x = TS.thin.x.mean[1:length(predict(lo))], col = "red", l
 
 
 #### splitting rf into multiple - single fire scale ####
-cam <- vect("D:/Outside Boundary/Geographic Subsets/CameronPeak.shp")
+# library(terra)
+# cam <- vect("D:/Outside Boundary/Geographic Subsets/CameronPeak.shp")
 # EL <- Engaged_Lines
-Engaged_Lines <- vect(EL, geom = c("x","y"), crs = crs(cam))
-cam_Lines <- crop(Engaged_Lines,cam)
-cam_Lines_df <- as.data.frame(cam_Lines, geom = c("XY"))
-write.csv(cam_Lines_df, "Engaged_Lines_CameronPeak.csv")
+# Engaged_Lines <- vect(EL, geom = c("x","y"), crs = crs(cam))
+# cam_Lines <- crop(Engaged_Lines,cam)
+# cam_Lines_df <- as.data.frame(cam_Lines, geom = c("XY"))
+# write.csv(cam_Lines_df, "Engaged_Lines_CameronPeak.csv")
 
 cam_Lines_df <- read.csv("D:/Outside Boundary/Engaged_Lines_CameronPeak.csv")
 table(cam_Lines_df$stat)
@@ -2529,6 +2596,7 @@ for(i in 1:n){
 }
 
 ## pred vs obs plot
+par(mfrow = c(1,2))
 y_hats1.diff <- y_hats1.diff*100 ## converting to %
 max(y_hats1.diff);min(y_hats1.diff)
 plot(x = 1:length(y_hats1.diff), y = y_hats1.diff,
@@ -2536,11 +2604,12 @@ plot(x = 1:length(y_hats1.diff), y = y_hats1.diff,
      xlab = "model run",
      ylim = c(min(y_hats1.diff)-5,max(y_hats1.diff)+5),
      las = 1,
+     main = "Space + Year",
      ylab = "% Difference in Predicted vs.Observed",
      cex = 1)
 round(mean(y_hats1.diff), digits = 3)
 abline(h = mean(y_hats1.diff), col="firebrick4", lty = 2)
-text(x = 30, y = 50, "Average difference = __%") 
+# text(x = 30, y = 50, "Average difference = __%") 
 
 y_hats2.diff <- y_hats2.diff*100 ## converting to %
 max(y_hats2.diff);min(y_hats2.diff)
@@ -2549,47 +2618,66 @@ plot(x = 1:length(y_hats2.diff), y = y_hats2.diff,
      xlab = "model run",
      ylim = c(min(y_hats2.diff)-5,max(y_hats2.diff)+5),
      las = 1,
+     main = "Treatments",
      ylab = "% Difference in Predicted vs.Observed",
      cex = 1)
 round(mean(y_hats2.diff), digits = 3)
 abline(h = mean(y_hats2.diff), col="firebrick4", lty = 2)
-text(x = 30, y = 50, "Average difference = __%") 
+# text(x = 30, y = 50, "Average difference = __%") 
 
 mean(balance1);min(balance1);max(balance1)
-# 0.740668
-# 0.7196563
-# 0.7655579
+# [1] 0.6837265
+# [1] 0.6656085
+# [1] 0.7054507
 
 mean(balance2);min(balance2);max(balance2)
-# 0.740668
-# 0.7196563
-# 0.7655579
+# [1] 0.04702833
+# [1] 0.02521008
+# [1] 0.06291834
 
 error.mean <- apply(error1,2,mean)
 min(error1);max(error1)
 plot(error.mean, type = "n",
      ylim = c(0,max(error1)+0.05),
      xlab = "Tree",
+     main = "Space + Year",
      ylab = "Error")
 for(i in 1:n){
   lines(error1[i,], col = rgb(0,0,0,alpha = 0.25))
 }
 lines(error.mean, type = "l", col = "firebrick", lty = 2, lwd= 2)
 mean(error.mean)*100
-text(x = 300, y = 0.18, "Average Error = __%")
+# text(x = 300, y = 0.18, "Average Error = __%")
 
 error.mean <- apply(error2,2,mean)
 min(error2);max(error2)
 plot(error.mean, type = "n",
      ylim = c(0,max(error2)+0.05),
      xlab = "Tree",
+     main = "Treatments",
      ylab = "Error")
 for(i in 1:n){
   lines(error2[i,], col = rgb(0,0,0,alpha = 0.25))
 }
 lines(error.mean, type = "l", col = "firebrick", lty = 2, lwd= 2)
 mean(error.mean)*100
-text(x = 300, y = 0.18, "Average Error = __%")
+# text(x = 300, y = 0.18, "Average Error = __%")
+
+par(mfrow = c(1,1))
+plot(x = c(1,2),
+     y = c(0,1),
+     las = 1,
+     xaxt = "n",
+     xlab = "",
+     ylab = "AUC",
+     type = "n")
+axis(1, at = c(1.2,1.8), line = 1, tick = F, labels = c("Space + Year", "Treatments"), cex.axis = 1.5)
+points(x = c(1.2,1.8),
+       y = c(mean(AUC.val1), mean(AUC.val2)),
+       pch = 16)
+segments(x0 = 1.2, y0 = max(AUC.val1), x1 = 1.2, y1 = min(AUC.val1))
+segments(x0 = 1.8, y0 = max(AUC.val2), x1 = 1.8, y1 = min(AUC.val2))
+abline(h = 0.5, lty = 2)
 
 mean(AUC.val1);min(AUC.val1);max(AUC.val1)
 # [1] 0.982703
@@ -2611,7 +2699,7 @@ varImp.plotting1 <- varImp.plotting1[order(varImp.plotting1$mean, decreasing = F
 
 min(varImp.plotting1$min)
 max(varImp.plotting1$max)
-par(mfrow = c(1,1), oma = c(0,3,0,0))
+par(mfrow = c(1,2), oma = c(0,3,0,0))
 plot(varImp.plotting1$mean,
      ylim = c(0,3),
      xlim = c(0,max(varImp.plotting1$max)+5), ## max of varImp.plotting$max + a few
@@ -2634,7 +2722,7 @@ varImp.plotting2 <- varImp.plotting2[order(varImp.plotting2$mean, decreasing = F
 
 min(varImp.plotting2$min)
 max(varImp.plotting2$max)
-par(mfrow = c(1,1), oma = c(0,3,0,0))
+# par(mfrow = c(1,1), oma = c(0,3,0,0))
 plot(varImp.plotting2$mean,
      ylim = c(0,6),
      xlim = c(0,max(varImp.plotting2$max)+5), ## max of varImp.plotting$max + a few
