@@ -2461,7 +2461,7 @@ AUC.val1 <- NA
 AUC.val2 <- NA
 
 r <- rast("LandFire TIFs/WF_dist.tif")
-blank <- rast(ext(r), resolution=10, vals=NA) ## gonna expand this
+blank <- rast(ext(r), resolution=100, vals=NA) ## gonna expand this
 crs(blank) <- crs(r)
 
 str(cam_Lines_df)
@@ -2502,7 +2502,7 @@ for(i in 1:n){
   dat.sp <- vect(dat_sub, geom = c("x","y"))
   dat.cell <- extract(blank, dat.sp, cell = TRUE)
   dat_sub$cell <- dat.cell$cell
-  dat_sub <- dat_sub %>% group_by(cell) %>% sample_n(size=1) # sample 5 point per 100 x 100 m cell
+  dat_sub <- dat_sub %>% group_by(cell) %>% sample_n(size=1) # sample one point per 100 x 100 m cell
   dat_sub <- vect(dat_sub, geom = c("x","y"), crs = crs(blank))
   dat_sub <- project(dat_sub, "EPSG:4326")
   dmat <- as.matrix(dist(cbind(geom(dat_sub)[,4], geom(dat_sub)[,3]))) ## turning the coordinates of each plot into a distance matrix
@@ -2512,10 +2512,14 @@ for(i in 1:n){
   dat_sub <- cbind(dat_sub, eigen_res$vectors)
   dat_sub$cell <- NULL
   colnames(dat_sub)[8:(7+num_eigenvectors)] <- paste("vec",colnames(dat_sub)[8:(7+num_eigenvectors)],sep = "")
-  dmat <- as.matrix(dist(cbind(dat_sub$y, dat_sub$x))) #
+  # dmat <- as.matrix(dist(cbind(dat_sub$y, dat_sub$x))) #
   set.seed(i)
-  vec <- order(dmat[sample(1:nrow(dat_sub),1),]) ## getting rows in order of distance to random point generated
-  vec <- vec[c(1:(0.75*nrow(dat_sub)))]
+  v1 <- sample(which(dat_sub$stat == "EH"), size = (0.75*length(which(dat_sub$stat == "EH"))))
+  set.seed(i)
+  v2 <- sample(which(dat_sub$stat == "EF"), size = (0.75*length(which(dat_sub$stat == "EF"))))
+  vec <- c(v1,v2)
+  # vec <- order(dmat[sample(1:nrow(dat_sub),1),]) ## getting rows in order of distance to random point generated
+  # test <- vec[c(1:(0.75*nrow(dat_sub)))]
   
   dat_sub1 <- dat_sub[,c(1,2,8:37)]
   dat_sub2 <- dat_sub[,c(1,3:7)]
