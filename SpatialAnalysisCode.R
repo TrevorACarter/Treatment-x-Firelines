@@ -1625,7 +1625,7 @@ for(i in 1:n){
   set.seed(i)
   train_index <- createDataPartition(y = dat_sub1$stat, p = 0.75, list = FALSE)
   training_set <- dat_sub1[train_index,]
-  dat_sub2 <- dat_sub2[train_index,]
+  dat_sub2 <- dat_sub2[-vec,]
   
   set.seed(i)
   rf1 <- randomForest(stat~.,
@@ -1636,12 +1636,12 @@ for(i in 1:n){
                      trControl = train_control,
                      keep.forest = TRUE,
                      keep.inbag = TRUE) ## making the rf object
-  y_hats1[i,1:nrow(testing_set)] <- predict(object = rf1, newdata = testing_set[, -1])
-  y_hats1.diff[i] <- mean(as.numeric(y_hats1[i,1:nrow(testing_set)]) - as.numeric(testing_set$stat))
+  y_hats1[i,1:nrow(testing_set)] <- predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2]
+  y_hats1.diff[i] <- mean(as.numeric(y_hats1[i,1:nrow(testing_set)]) - (as.numeric(testing_set$stat)-1))
   obj <- varImp(rf1)
   varImp1.summary[,i] <- obj$Overall
   varImp1.names[,i] <- rownames(obj)
-  rf1.res[i,c(1:length(rf1$predicted))] <- as.integer(training_set$stat) - as.integer(rf1$predicted)
+  rf1.res[i,c(1:length(testing_set$stat))] <- predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2] - (as.numeric(testing_set$stat)-1)
   error1[i,] <- rf1$err.rate[,1]
   rf.roc <- suppressMessages(roc(training_set$stat, rf1$votes[,2]))
   AUC.val1[i] <- as.numeric(auc(rf.roc))
@@ -1650,14 +1650,18 @@ for(i in 1:n){
   res4pred <- rf1.res[i,!is.na(rf1.res[i,])]
   length(res4pred)
   
-  dat_sub2$stat <- as.factor(res4pred)
+  dat_sub2$obs <- as.numeric(dat_sub2$stat)-1
+  dat_sub2$pred <- as.numeric(predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2])
+  dat_sub2$stat <- as.numeric(res4pred)
+  dat_sub2$obs <- NULL
+  dat_sub2$pred <- NULL
   
   set.seed(i)
   vec <- order(dmat[sample(1:nrow(dat_sub2),1),]) ## getting rows in order of distance to random point generated
   vec <- vec[c(1:(0.75*nrow(dat_sub2)))]
   
   training_set <- dat_sub2[vec,]
-  balance2[i] <- 1-length(which(training_set$stat == "0"))/length(training_set$stat)
+  balance2[i] <- mean(dat_sub2$stat)
   testing_set <- dat_sub2[-vec,]
   set.seed(i)
   train_index <- createDataPartition(y = dat_sub2$stat, p = 0.75, list = FALSE)
@@ -1677,9 +1681,10 @@ for(i in 1:n){
   obj <- varImp(rf2)
   varImp2.summary[,i] <- obj$Overall
   varImp2.names[,i] <- rownames(obj)
-  rf2.res[i,c(1:length(rf2$predicted))] <- as.integer(training_set$stat) - as.integer(rf2$predicted)
-  error2[i,] <- rf2$err.rate[,1]
-  rf.roc <- suppressMessages(  multiclass.roc(training_set$stat, rf2$votes[,2], levels = levels(training_set$stat)))
+  rf2.res[i,c(1:length(rf2$predicted))] <- as.numeric(rf2$predicted) - as.numeric(training_set$stat)
+  # error2[i,] <- rf2$err.rate[,1]
+  training_set$bin.out <- round(training_set$stat,0)
+  rf.roc <- suppressMessages(  multiclass.roc(training_set$bin.out, rf2$predicted))
   AUC.val2[i] <- as.numeric(auc(rf.roc))
   
   training_set <- as.data.frame(training_set)
@@ -1860,18 +1865,18 @@ par(mfrow = c(2,2))
 
 plot(prop.rx.x[1,], prop.rx.y[1,],
      type = "l",
-     ylim = c(-0.25,1.25),
+     ylim = c(-1.25,1.25),
      col = rgb(0,0,0,0.25),
      main = "",
      cex.axis = 1.5,
      cex.lab = 1.5,
      las = 1,
      xlab = "Proportion Rx Fire",
-     ylab = "Line Status")
+     ylab = "Prediction Error")
 for(i in 2:n)(
   lines(prop.rx.x[i,], prop.rx.y[i,], col = rgb(0,0,0,0.25))
 )
-abline(h = 0.5, lty = 2, lwd = 2)
+abline(h = 0, lty = 2, lwd = 2)
 # points(x = FD$X, y = jitter(FD$LineInt, factor = .25),
 #        cex = 0.5,
 #        col = rgb(0,0,0,0.25),
@@ -1883,18 +1888,18 @@ lines(y = predict(lo), x = prop.rx.x.mean[1:length(predict(lo))], col = "red", l
 
 plot(prop.thin.x[1,], prop.thin.y[1,],
      type = "l",
-     ylim = c(-0.25,1.25),
+     ylim = c(-1.25,1.25),
      col = rgb(0,0,0,0.25),
      main = "",
      cex.axis = 1.5,
      cex.lab = 1.5,
      las = 1,
      xlab = "Proportion Thinning",
-     ylab = "Line Status")
+     ylab = "Prediction Error")
 for(i in 2:n)(
   lines(prop.thin.x[i,], prop.thin.y[i,], col = rgb(0,0,0,0.25))
 )
-abline(h = 0.5, lty = 2, lwd = 2)
+abline(h = 0, lty = 2, lwd = 2)
 # points(x = FD$X, y = jitter(FD$LineInt, factor = .25),
 #        cex = 0.5,
 #        col = rgb(0,0,0,0.25),
@@ -1906,18 +1911,18 @@ lines(y = predict(lo), x = prop.thin.x.mean[1:length(predict(lo))], col = "red",
 
 plot(TS.rx.x[1,], TS.rx.y[1,],
      type = "l",
-     ylim = c(-0.25,1.25),
+     ylim = c(-1.25,1.25),
      col = rgb(0,0,0,0.25),
      main = "",
      cex.axis = 1.5,
      cex.lab = 1.5,
      las = 1,
      xlab = "Time Since Rx Fire",
-     ylab = "Line Status")
+     ylab = "Prediction Error")
 for(i in 2:n)(
   lines(TS.rx.x[i,], TS.rx.y[i,], col = rgb(0,0,0,0.25))
 )
-abline(h = 0.5, lty = 2, lwd = 2)
+abline(h = 0, lty = 2, lwd = 2)
 # points(x = FD$X, y = jitter(FD$LineInt, factor = .25),
 #        cex = 0.5,
 #        col = rgb(0,0,0,0.25),
@@ -1929,18 +1934,18 @@ lines(y = predict(lo), x = TS.rx.x.mean[1:length(predict(lo))], col = "red", lwd
 
 plot(TS.thin.x[1,], TS.thin.y[1,],
      type = "l",
-     ylim = c(-0.25,1.25),
+     ylim = c(-1.25,1.25),
      col = rgb(0,0,0,0.25),
      main = "",
      cex.axis = 1.5,
      cex.lab = 1.5,
      las = 1,
      xlab = "Time Since Thinning",
-     ylab = "Line Status")
+     ylab = "Prediction Error")
 for(i in 2:n)(
   lines(TS.thin.x[i,], TS.thin.y[i,], col = rgb(0,0,0,0.25))
 )
-abline(h = 0.5, lty = 2, lwd = 2)
+abline(h = 0, lty = 2, lwd = 2)
 # points(x = FD$X, y = jitter(FD$LineInt, factor = .25),
 #        cex = 0.5,
 #        col = rgb(0,0,0,0.25),
@@ -2070,7 +2075,7 @@ for(i in 1:n){
   set.seed(i)
   train_index <- createDataPartition(y = dat_sub1$stat, p = 0.75, list = FALSE)
   training_set <- dat_sub1[train_index,]
-  dat_sub2 <- dat_sub2[train_index,]
+  dat_sub2 <- dat_sub2[-vec,]
   
   set.seed(i)
   rf1 <- randomForest(stat~.,
@@ -2081,12 +2086,12 @@ for(i in 1:n){
                       trControl = train_control,
                       keep.forest = TRUE,
                       keep.inbag = TRUE) ## making the rf object
-  y_hats1[i,1:nrow(testing_set)] <- predict(object = rf1, newdata = testing_set[, -1])
-  y_hats1.diff[i] <- mean(as.numeric(y_hats1[i,1:nrow(testing_set)]) - as.numeric(testing_set$stat))
+  y_hats1[i,1:nrow(testing_set)] <- predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2]
+  y_hats1.diff[i] <- mean(as.numeric(y_hats1[i,1:nrow(testing_set)]) - (as.numeric(testing_set$stat)-1))
   obj <- varImp(rf1)
   varImp1.summary[,i] <- obj$Overall
   varImp1.names[,i] <- rownames(obj)
-  rf1.res[i,c(1:length(rf1$predicted))] <- as.integer(training_set$stat) - as.integer(rf1$predicted)
+  rf1.res[i,c(1:length(testing_set$stat))] <- predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2] - (as.numeric(testing_set$stat)-1)
   error1[i,] <- rf1$err.rate[,1]
   rf.roc <- suppressMessages(roc(training_set$stat, rf1$votes[,2]))
   AUC.val1[i] <- as.numeric(auc(rf.roc))
@@ -2095,14 +2100,18 @@ for(i in 1:n){
   res4pred <- rf1.res[i,!is.na(rf1.res[i,])]
   length(res4pred)
   
-  dat_sub2$stat <- as.factor(res4pred)
+  dat_sub2$obs <- as.numeric(dat_sub2$stat)-1
+  dat_sub2$pred <- as.numeric(predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2])
+  dat_sub2$stat <- as.numeric(res4pred)
+  dat_sub2$obs <- NULL
+  dat_sub2$pred <- NULL
   
   set.seed(i)
   vec <- order(dmat[sample(1:nrow(dat_sub2),1),]) ## getting rows in order of distance to random point generated
   vec <- vec[c(1:(0.75*nrow(dat_sub2)))]
   
   training_set <- dat_sub2[vec,]
-  balance2[i] <- 1-length(which(training_set$stat == "0"))/length(training_set$stat)
+  balance2[i] <- mean(dat_sub2$stat)
   testing_set <- dat_sub2[-vec,]
   set.seed(i)
   train_index <- createDataPartition(y = dat_sub2$stat, p = 0.75, list = FALSE)
@@ -2122,9 +2131,10 @@ for(i in 1:n){
   obj <- varImp(rf2)
   varImp2.summary[,i] <- obj$Overall
   varImp2.names[,i] <- rownames(obj)
-  rf2.res[i,c(1:length(rf2$predicted))] <- as.integer(training_set$stat) - as.integer(rf2$predicted)
-  error2[i,] <- rf2$err.rate[,1]
-  rf.roc <- suppressMessages(  multiclass.roc(training_set$stat, rf2$votes[,2], levels = levels(training_set$stat)))
+  rf2.res[i,c(1:length(rf2$predicted))] <- as.numeric(rf2$predicted) - as.numeric(training_set$stat)
+  # error2[i,] <- rf2$err.rate[,1]
+  training_set$bin.out <- round(training_set$stat,0)
+  rf.roc <- suppressMessages(  multiclass.roc(training_set$bin.out, rf2$predicted))
   AUC.val2[i] <- as.numeric(auc(rf.roc))
   
   training_set <- as.data.frame(training_set)
@@ -2239,9 +2249,9 @@ mean(AUC.val1);min(AUC.val1);max(AUC.val1)
 # [1] 0.9395587
 
 mean(AUC.val2);min(AUC.val2);max(AUC.val2)
-# [1] 0.525295
-# [1] 0.494486
-# [1] 0.5529919
+# [1] 0.734153
+# [1] 0.5505018
+# [1] 0.87475
 ## models are basically random (AUC of ~.5)
 
 ## VarImp Plot 1
@@ -2451,7 +2461,7 @@ AUC.val1 <- NA
 AUC.val2 <- NA
 
 r <- rast("LandFire TIFs/WF_dist.tif")
-blank <- rast(ext(r), resolution=100, vals=NA) ## gonna expand this
+blank <- rast(ext(r), resolution=10, vals=NA) ## gonna expand this
 crs(blank) <- crs(r)
 
 str(cam_Lines_df)
@@ -2492,7 +2502,7 @@ for(i in 1:n){
   dat.sp <- vect(dat_sub, geom = c("x","y"))
   dat.cell <- extract(blank, dat.sp, cell = TRUE)
   dat_sub$cell <- dat.cell$cell
-  dat_sub <- dat_sub %>% group_by(cell) %>% sample_n(size=1) # sample one point per 100 x 100 m cell
+  dat_sub <- dat_sub %>% group_by(cell) %>% sample_n(size=1) # sample 5 point per 100 x 100 m cell
   dat_sub <- vect(dat_sub, geom = c("x","y"), crs = crs(blank))
   dat_sub <- project(dat_sub, "EPSG:4326")
   dmat <- as.matrix(dist(cbind(geom(dat_sub)[,4], geom(dat_sub)[,3]))) ## turning the coordinates of each plot into a distance matrix
@@ -2516,7 +2526,7 @@ for(i in 1:n){
   set.seed(i)
   train_index <- createDataPartition(y = dat_sub1$stat, p = 0.75, list = FALSE)
   training_set <- dat_sub1[train_index,]
-  dat_sub2 <- dat_sub2[train_index,]
+  dat_sub2 <- dat_sub2[-vec,]
   
   set.seed(i)
   rf1 <- randomForest(stat~.,
@@ -2527,12 +2537,12 @@ for(i in 1:n){
                       trControl = train_control,
                       keep.forest = TRUE,
                       keep.inbag = TRUE) ## making the rf object
-  y_hats1[i,1:nrow(testing_set)] <- predict(object = rf1, newdata = testing_set[, -1])
-  y_hats1.diff[i] <- mean(as.numeric(y_hats1[i,1:nrow(testing_set)]) - as.numeric(testing_set$stat))
+  y_hats1[i,1:nrow(testing_set)] <- predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2]
+  y_hats1.diff[i] <- mean(as.numeric(y_hats1[i,1:nrow(testing_set)]) - (as.numeric(testing_set$stat)-1))
   obj <- varImp(rf1)
   varImp1.summary[,i] <- obj$Overall
   varImp1.names[,i] <- rownames(obj)
-  rf1.res[i,c(1:length(rf1$predicted))] <- as.integer(training_set$stat) - as.integer(rf1$predicted)
+  rf1.res[i,c(1:length(testing_set$stat))] <- predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2] - (as.numeric(testing_set$stat)-1)
   error1[i,] <- rf1$err.rate[,1]
   rf.roc <- suppressMessages(roc(training_set$stat, rf1$votes[,2]))
   AUC.val1[i] <- as.numeric(auc(rf.roc))
@@ -2541,14 +2551,18 @@ for(i in 1:n){
   res4pred <- rf1.res[i,!is.na(rf1.res[i,])]
   length(res4pred)
   
-  dat_sub2$stat <- as.factor(res4pred)
+  dat_sub2$obs <- as.numeric(dat_sub2$stat)-1
+  dat_sub2$pred <- as.numeric(predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2])
+  dat_sub2$stat <- as.numeric(res4pred)
+  dat_sub2$obs <- NULL
+  dat_sub2$pred <- NULL
   
   set.seed(i)
   vec <- order(dmat[sample(1:nrow(dat_sub2),1),]) ## getting rows in order of distance to random point generated
   vec <- vec[c(1:(0.75*nrow(dat_sub2)))]
   
   training_set <- dat_sub2[vec,]
-  balance2[i] <- 1-length(which(training_set$stat == "0"))/length(training_set$stat)
+  balance2[i] <- mean(dat_sub2$stat)
   testing_set <- dat_sub2[-vec,]
   set.seed(i)
   train_index <- createDataPartition(y = dat_sub2$stat, p = 0.75, list = FALSE)
@@ -2568,9 +2582,10 @@ for(i in 1:n){
   obj <- varImp(rf2)
   varImp2.summary[,i] <- obj$Overall
   varImp2.names[,i] <- rownames(obj)
-  rf2.res[i,c(1:length(rf2$predicted))] <- as.integer(training_set$stat) - as.integer(rf2$predicted)
-  error2[i,] <- rf2$err.rate[,1]
-  rf.roc <- suppressMessages(  multiclass.roc(training_set$stat, rf2$votes[,2], levels = levels(training_set$stat)))
+  rf2.res[i,c(1:length(rf2$predicted))] <- as.numeric(rf2$predicted) - as.numeric(training_set$stat)
+  # error2[i,] <- rf2$err.rate[,1]
+  training_set$bin.out <- round(training_set$stat,0)
+  rf.roc <- suppressMessages(  multiclass.roc(training_set$bin.out, rf2$predicted))
   AUC.val2[i] <- as.numeric(auc(rf.roc))
   
   training_set <- as.data.frame(training_set)
