@@ -1563,6 +1563,7 @@ balance1 <- NA
 balance2 <- NA
 error1 <- matrix(data = NA, nrow = n, ncol = 500) ## ncol = ntree
 error2 <- matrix(data = NA, nrow = n, ncol = 500) ## ncol = ntree
+r2 <- matrix(data = NA, nrow = n, ncol = 500)
 
 AUC.val1 <- NA
 AUC.val2 <- NA
@@ -1634,15 +1635,15 @@ for(i in 1:n){
                      maxnodes = 75,
                      maximize = TRUE,
                      trControl = train_control,
+                     importance = TRUE,
                      keep.forest = TRUE,
                      keep.inbag = TRUE) ## making the rf object
   y_hats1[i,1:nrow(testing_set)] <- predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2]
   y_hats1.diff[i] <- mean(as.numeric(y_hats1[i,1:nrow(testing_set)]) - (as.numeric(testing_set$stat)-1))
-  obj <- varImp(rf1)
-  varImp1.summary[,i] <- obj$Overall
-  varImp1.names[,i] <- rownames(obj)
+  varImp1.summary[,i] <- rf1$importance[,3] ## Mean decrease accuracy
+  varImp1.names[,i] <- rownames(rf1$importance)
   rf1.res[i,c(1:length(testing_set$stat))] <- predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2] - (as.numeric(testing_set$stat)-1)
-  error1[i,] <- rf1$err.rate[,1]
+  error1[i,] <- rf1$err.rate[,1] ## out of bag error
   rf.roc <- suppressMessages(roc(training_set$stat, rf1$votes[,2]))
   AUC.val1[i] <- as.numeric(auc(rf.roc))
   
@@ -1674,18 +1675,19 @@ for(i in 1:n){
                       maxnodes = 75,
                       maximize = TRUE,
                       trControl = train_control,
+                      importance = TRUE,
                       keep.forest = TRUE,
                       keep.inbag = TRUE) ## making the rf object
   y_hats2[i,1:nrow(testing_set)] <- predict(object = rf2, newdata = testing_set[, -1])
   y_hats2.diff[i] <- mean(as.numeric(y_hats2[i,1:nrow(testing_set)]) - as.numeric(testing_set$stat))
-  obj <- varImp(rf2)
-  varImp2.summary[,i] <- obj$Overall
-  varImp2.names[,i] <- rownames(obj)
+  varImp2.summary[,i] <- rf2$importance[,1]
+  varImp2.names[,i] <- rownames(rf2$importance)
   rf2.res[i,c(1:length(rf2$predicted))] <- as.numeric(rf2$predicted) - as.numeric(training_set$stat)
-  # error2[i,] <- rf2$err.rate[,1]
+  error2[i,] <- rf2$mse
   training_set$bin.out <- round(training_set$stat,0)
   rf.roc <- suppressMessages(  multiclass.roc(training_set$bin.out, rf2$predicted))
   AUC.val2[i] <- as.numeric(auc(rf.roc))
+  r2[i,] <- rf2$rsq
   
   training_set <- as.data.frame(training_set)
   prop.rx <- partialPlot(rf2, training_set, x.var = prop.rx)
@@ -1711,70 +1713,72 @@ for(i in 1:n){
 
 ## pred vs obs plot
 par(mfrow = c(1,2))
-y_hats1.diff <- y_hats1.diff*100 ## converting to %
+# y_hats1.diff <- y_hats1.diff*100 ## converting to %
 max(y_hats1.diff);min(y_hats1.diff)
 plot(x = 1:length(y_hats1.diff), y = y_hats1.diff,
      pch = 16,
      xlab = "model run",
-     ylim = c(min(y_hats1.diff)-5,max(y_hats1.diff)+5),
+     ylim = c(min(y_hats1.diff)-0.1,max(y_hats1.diff)+0.1),
      las = 1,
-     main = "Space + Time",
-     ylab = "% Difference in Predicted vs.Observed",
-     cex = 1)
+     main = "Space + Year",
+     ylab = "Average Predicted - Observed",
+     cex = 1) ## Difference in Predicted Probability vs.Observed Class
 round(mean(y_hats1.diff), digits = 3)
 abline(h = mean(y_hats1.diff), col="firebrick4", lty = 2)
 # text("topright", "Average difference = 6.84%") 
 
-y_hats2.diff <- y_hats2.diff*100 ## converting to %
+# y_hats2.diff <- y_hats2.diff*100 ## converting to %
 max(y_hats2.diff);min(y_hats2.diff)
 plot(x = 1:length(y_hats2.diff), y = y_hats2.diff,
      pch = 16,
      xlab = "model run",
-     ylim = c(min(y_hats2.diff)-5,max(y_hats2.diff)+5),
+     ylim = c(min(y_hats1.diff)-0.1,max(y_hats1.diff)+0.1),
      las = 1,
      main = "Treatments",
-     ylab = "% Difference in Predicted vs.Observed",
-     cex = 1)
+     ylab = "Average Predicted - Observed",
+     cex = 1) ## predicted probability of residual - observed probability of residual (from rf1)
 round(mean(y_hats2.diff), digits = 3)
 abline(h = mean(y_hats2.diff), col="firebrick4", lty = 2)
 # text(x = 30, y = 50, "Average difference = 12.4%") 
 
-mean(balance1);min(balance1);max(balance1)
+mean(balance1);min(balance1);max(balance1) ## balance of line status
 # [1] 0.5117817
 # [1] 0.4999235
 # [1] 0.5246781
 
-mean(balance2);min(balance2);max(balance2)
-# [1] 0.4077722
-# [1] 0.3742344
-# [1] 0.4787582
+mean(balance2);min(balance2);max(balance2) ## average residual error from rf1 (per model run)
+# [1] 0.03831505
+# [1] -0.02821458
+# [1] 0.1057284
 
 error.mean <- apply(error1,2,mean)
 min(error1);max(error1)
 plot(error.mean, type = "n",
      ylim = c(0,max(error1)+0.05),
+     las = 1,
      xlab = "Tree",
      main = "Space + Year",
-     ylab = "Error")
+     ylab = "OOB Error")
 for(i in 1:n){
   lines(error1[i,], col = rgb(0,0,0,alpha = 0.25))
 }
 lines(error.mean, type = "l", col = "firebrick", lty = 2, lwd= 2)
-mean(error.mean)*100
+mean(error.mean)*100 # 31.64696
 # text(x = 300, y = 0.18, "Average Error = __%")
 
 error.mean <- apply(error2,2,mean)
 min(error2);max(error2)
 plot(error.mean, type = "n",
-     ylim = c(0,max(error2)+0.05),
+     ylim = c(0,max(error1)+0.05),
+     las = 1,
      xlab = "Tree",
      main = "Treatments",
-     ylab = "Error")
+     ylab = "Mean Square Error")
 for(i in 1:n){
   lines(error2[i,], col = rgb(0,0,0,alpha = 0.25))
 }
 lines(error.mean, type = "l", col = "firebrick", lty = 2, lwd= 2)
-mean(error.mean)*100
+mean(error.mean)*100 # 18.74919
 # text(x = 300, y = 0.18, "Average Error = __%")
 
 par(mfrow = c(1,1))
@@ -1799,9 +1803,16 @@ mean(AUC.val1);min(AUC.val1);max(AUC.val1)
 # [1] 0.7771144
 
 mean(AUC.val2);min(AUC.val2);max(AUC.val2)
-# [1] 0.4979027
-# [1] 0.4564947
-# [1] 0.5569631
+# [1] 0.6296133
+# [1] 0.421915
+# [1] 0.7039798
+
+r2.mean <- apply(r2,1,mean)
+mean(r2.mean);min(r2.mean);max(r2.mean)
+## between 1 - 10% of additional variance explained (average 5.5%)
+# [1] 0.05530371
+# [1] 0.0133965
+# [1] 0.09883437
 
 ## VarImp Plot 1
 varImp.plotting1 <- data.frame(name = c(varImp1.names[c(1),1],"spatial"),
@@ -1815,16 +1826,16 @@ max(varImp.plotting1$max)
 par(mfrow = c(1,2), oma = c(0,3,0,0))
 plot(varImp.plotting1$mean,
      ylim = c(0,3),
-     xlim = c(0,max(varImp.plotting1$max)+5), ## max of varImp.plotting$max + a few
+     xlim = c(0,max(varImp.plotting2$max)), ## max of varImp.plotting$max + a few
      las = 1,
      type = "n",
      ylab = "",
      yaxt = "n",
-     xlab = "Variable Importance")
+     xlab = "Mean Decrease Accuracy")
 axis(2, at = c(1:2), labels = varImp.plotting1$name, cex.axis = 1, las = 2)
 points(x = varImp.plotting1$mean,y = 1:2, col = "black", cex = 1, pch = 16)
 segments(x0 = varImp.plotting1$min, y0 = 1:2, x1 = varImp.plotting1$max, y1 = 1:2, col = "black", lwd = 1.5)
-abline(v = 10, lty = 2)
+# abline(v = 10, lty = 2)
 
 ## VarImp Plot 2
 varImp.plotting2 <- data.frame(name = c(varImp2.names[c(1:5),1]),
@@ -1838,16 +1849,16 @@ max(varImp.plotting2$max)
 # par(mfrow = c(1,1), oma = c(0,3,0,0))
 plot(varImp.plotting2$mean,
      ylim = c(0,6),
-     xlim = c(0,max(varImp.plotting2$max)+5), ## max of varImp.plotting$max + a few
+     xlim = c(0,max(varImp.plotting2$max)), ## max of varImp.plotting$max + a few
      las = 1,
      type = "n",
      ylab = "",
      yaxt = "n",
-     xlab = "Variable Importance")
+     xlab = "Mean Decrease Accuracy")
 axis(2, at = c(1:5), labels = varImp.plotting2$name, cex.axis = 1, las = 2)
 points(x = varImp.plotting2$mean,y = 1:5, col = "black", cex = 1, pch = 16)
 segments(x0 = varImp.plotting2$min, y0 = 1:5, x1 = varImp.plotting2$max, y1 = 1:5, col = "black", lwd = 1.5)
-abline(v = 10, lty = 2)
+# abline(v = 10, lty = 2)
 
 ## Partial Dependence Plots
 # FD <- Engaged_Lines
@@ -1868,19 +1879,16 @@ plot(prop.rx.x[1,], prop.rx.y[1,],
      ylim = c(-1.25,1.25),
      col = rgb(0,0,0,0.25),
      main = "",
+     yaxt = "n",
      cex.axis = 1.5,
      cex.lab = 1.5,
      las = 1,
      xlab = "Proportion Rx Fire",
-     ylab = "Prediction Error")
+     ylab = "")
+axis(2, at = c(-1,0,1), line = 1, las = 1,tick = T, labels = c("Type 1", "Correct", "Type 2"), cex.axis = 1.5)
 for(i in 2:n)(
   lines(prop.rx.x[i,], prop.rx.y[i,], col = rgb(0,0,0,0.25))
 )
-abline(h = 0, lty = 2, lwd = 2)
-# points(x = FD$X, y = jitter(FD$LineInt, factor = .25),
-#        cex = 0.5,
-#        col = rgb(0,0,0,0.25),
-#        pch = 16)
 prop.rx.x.mean <- apply(prop.rx.x,2,mean, na.rm = T)
 prop.rx.y.mean <- apply(prop.rx.y,2,mean, na.rm = T)
 lo <- loess(prop.rx.y.mean~prop.rx.x.mean)
@@ -1891,19 +1899,16 @@ plot(prop.thin.x[1,], prop.thin.y[1,],
      ylim = c(-1.25,1.25),
      col = rgb(0,0,0,0.25),
      main = "",
+     yaxt = "n",
      cex.axis = 1.5,
      cex.lab = 1.5,
      las = 1,
      xlab = "Proportion Thinning",
-     ylab = "Prediction Error")
+     ylab = "")
+axis(2, at = c(-1,0,1), line = 1, las = 1,tick = T, labels = c("Type 1", "Correct", "Type 2"), cex.axis = 1.5)
 for(i in 2:n)(
   lines(prop.thin.x[i,], prop.thin.y[i,], col = rgb(0,0,0,0.25))
 )
-abline(h = 0, lty = 2, lwd = 2)
-# points(x = FD$X, y = jitter(FD$LineInt, factor = .25),
-#        cex = 0.5,
-#        col = rgb(0,0,0,0.25),
-#        pch = 16)
 prop.thin.x.mean <- apply(prop.thin.x,2,mean, na.rm = T)
 prop.thin.y.mean <- apply(prop.thin.y,2,mean, na.rm = T)
 lo <- loess(prop.thin.y.mean~prop.thin.x.mean)
@@ -1914,19 +1919,16 @@ plot(TS.rx.x[1,], TS.rx.y[1,],
      ylim = c(-1.25,1.25),
      col = rgb(0,0,0,0.25),
      main = "",
+     yaxt = "n",
      cex.axis = 1.5,
      cex.lab = 1.5,
      las = 1,
      xlab = "Time Since Rx Fire",
-     ylab = "Prediction Error")
+     ylab = "")
+axis(2, at = c(-1,0,1), line = 1, las = 1,tick = T, labels = c("Type 1", "Correct", "Type 2"), cex.axis = 1.5)
 for(i in 2:n)(
   lines(TS.rx.x[i,], TS.rx.y[i,], col = rgb(0,0,0,0.25))
 )
-abline(h = 0, lty = 2, lwd = 2)
-# points(x = FD$X, y = jitter(FD$LineInt, factor = .25),
-#        cex = 0.5,
-#        col = rgb(0,0,0,0.25),
-#        pch = 16)
 TS.rx.x.mean <- apply(TS.rx.x,2,mean, na.rm = T)
 TS.rx.y.mean <- apply(TS.rx.y,2,mean, na.rm = T)
 lo <- loess(TS.rx.y.mean~TS.rx.x.mean)
@@ -1937,19 +1939,16 @@ plot(TS.thin.x[1,], TS.thin.y[1,],
      ylim = c(-1.25,1.25),
      col = rgb(0,0,0,0.25),
      main = "",
-     cex.axis = 1.5,
+     yaxt = "n",
+      cex.axis = 1.5,
      cex.lab = 1.5,
      las = 1,
      xlab = "Time Since Thinning",
-     ylab = "Prediction Error")
+     ylab = "")
+axis(2, at = c(-1,0,1), line = 1, las = 1,tick = T, labels = c("Type 1", "Correct", "Type 2"), cex.axis = 1.5)
 for(i in 2:n)(
   lines(TS.thin.x[i,], TS.thin.y[i,], col = rgb(0,0,0,0.25))
 )
-abline(h = 0, lty = 2, lwd = 2)
-# points(x = FD$X, y = jitter(FD$LineInt, factor = .25),
-#        cex = 0.5,
-#        col = rgb(0,0,0,0.25),
-#        pch = 16)
 TS.thin.x.mean <- apply(TS.thin.x,2,mean, na.rm = T)
 TS.thin.y.mean <- apply(TS.thin.y,2,mean, na.rm = T)
 lo <- loess(TS.thin.y.mean~TS.thin.x.mean)
@@ -2005,6 +2004,7 @@ balance1 <- NA
 balance2 <- NA
 error1 <- matrix(data = NA, nrow = n, ncol = 500) ## ncol = ntree
 error2 <- matrix(data = NA, nrow = n, ncol = 500) ## ncol = ntree
+r2 <- matrix(data = NA, nrow = n, ncol = 500)
 
 AUC.val1 <- NA
 AUC.val2 <- NA
@@ -2084,15 +2084,15 @@ for(i in 1:n){
                       maxnodes = 75,
                       maximize = TRUE,
                       trControl = train_control,
+                      importance = TRUE,
                       keep.forest = TRUE,
                       keep.inbag = TRUE) ## making the rf object
   y_hats1[i,1:nrow(testing_set)] <- predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2]
   y_hats1.diff[i] <- mean(as.numeric(y_hats1[i,1:nrow(testing_set)]) - (as.numeric(testing_set$stat)-1))
-  obj <- varImp(rf1)
-  varImp1.summary[,i] <- obj$Overall
-  varImp1.names[,i] <- rownames(obj)
+  varImp1.summary[,i] <- rf1$importance[,3] ## Mean decrease accuracy
+  varImp1.names[,i] <- rownames(rf1$importance)
   rf1.res[i,c(1:length(testing_set$stat))] <- predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2] - (as.numeric(testing_set$stat)-1)
-  error1[i,] <- rf1$err.rate[,1]
+  error1[i,] <- rf1$err.rate[,1] ## out of bag error
   rf.roc <- suppressMessages(roc(training_set$stat, rf1$votes[,2]))
   AUC.val1[i] <- as.numeric(auc(rf.roc))
   
@@ -2124,18 +2124,19 @@ for(i in 1:n){
                       maxnodes = 75,
                       maximize = TRUE,
                       trControl = train_control,
+                      importance = TRUE,
                       keep.forest = TRUE,
                       keep.inbag = TRUE) ## making the rf object
   y_hats2[i,1:nrow(testing_set)] <- predict(object = rf2, newdata = testing_set[, -1])
   y_hats2.diff[i] <- mean(as.numeric(y_hats2[i,1:nrow(testing_set)]) - as.numeric(testing_set$stat))
-  obj <- varImp(rf2)
-  varImp2.summary[,i] <- obj$Overall
-  varImp2.names[,i] <- rownames(obj)
+  varImp2.summary[,i] <- rf2$importance[,1]
+  varImp2.names[,i] <- rownames(rf2$importance)
   rf2.res[i,c(1:length(rf2$predicted))] <- as.numeric(rf2$predicted) - as.numeric(training_set$stat)
-  # error2[i,] <- rf2$err.rate[,1]
+  error2[i,] <- rf2$mse
   training_set$bin.out <- round(training_set$stat,0)
   rf.roc <- suppressMessages(  multiclass.roc(training_set$bin.out, rf2$predicted))
   AUC.val2[i] <- as.numeric(auc(rf.roc))
+  r2[i,] <- rf2$rsq
   
   training_set <- as.data.frame(training_set)
   prop.rx <- partialPlot(rf2, training_set, x.var = prop.rx)
@@ -2161,70 +2162,72 @@ for(i in 1:n){
 
 ## pred vs obs plot
 par(mfrow = c(1,2))
-y_hats1.diff <- y_hats1.diff*100 ## converting to %
+# y_hats1.diff <- y_hats1.diff*100 ## converting to %
 max(y_hats1.diff);min(y_hats1.diff)
 plot(x = 1:length(y_hats1.diff), y = y_hats1.diff,
      pch = 16,
      xlab = "model run",
-     ylim = c(min(y_hats1.diff)-5,max(y_hats1.diff)+5),
+     ylim = c(min(y_hats1.diff)-0.1,max(y_hats1.diff)+0.1),
      las = 1,
-     main = "Space + Time",
-     ylab = "% Difference in Predicted vs.Observed",
-     cex = 1)
+     main = "Space + Year",
+     ylab = "Average Predicted - Observed",
+     cex = 1) ## Difference in Predicted Probability vs.Observed Class
 round(mean(y_hats1.diff), digits = 3)
 abline(h = mean(y_hats1.diff), col="firebrick4", lty = 2)
-# text(x = 30, y = 50, "Average difference = __%") 
+# text("topright", "Average difference = 6.84%") 
 
-y_hats2.diff <- y_hats2.diff*100 ## converting to %
+# y_hats2.diff <- y_hats2.diff*100 ## converting to %
 max(y_hats2.diff);min(y_hats2.diff)
 plot(x = 1:length(y_hats2.diff), y = y_hats2.diff,
      pch = 16,
      xlab = "model run",
-     ylim = c(min(y_hats2.diff)-5,max(y_hats2.diff)+5),
+     ylim = c(min(y_hats1.diff)-0.1,max(y_hats1.diff)+0.1),
      las = 1,
      main = "Treatments",
-     ylab = "% Difference in Predicted vs.Observed",
-     cex = 1)
+     ylab = "Average Predicted - Observed",
+     cex = 1) ## predicted probability of residual - observed probability of residual (from rf1)
 round(mean(y_hats2.diff), digits = 3)
 abline(h = mean(y_hats2.diff), col="firebrick4", lty = 2)
-# text(x = 30, y = 50, "Average difference = __%") 
+# text(x = 30, y = 50, "Average difference = 12.4%") 
 
-mean(balance1);min(balance1);max(balance1)
+mean(balance1);min(balance1);max(balance1) ## balance of line status
 # [1] 0.6070943
 # [1] 0.5699896
 # [1] 0.6353383
 
-mean(balance2);min(balance2);max(balance2)
-# [1] 0.2862916
-# [1] 0.1567718
-# [1] 0.5031876
+mean(balance2);min(balance2);max(balance2) ## average residual error from rf1 (per model run)
+# [1] 0.06036143
+# [1] 0.01682586
+# [1] 0.1121711
 
 error.mean <- apply(error1,2,mean)
 min(error1);max(error1)
 plot(error.mean, type = "n",
      ylim = c(0,max(error1)+0.05),
+     las = 1,
      xlab = "Tree",
      main = "Space + Year",
-     ylab = "Error")
+     ylab = "OOB Error")
 for(i in 1:n){
   lines(error1[i,], col = rgb(0,0,0,alpha = 0.25))
 }
 lines(error.mean, type = "l", col = "firebrick", lty = 2, lwd= 2)
-mean(error.mean)*100
+mean(error.mean)*100 # 14.94094
 # text(x = 300, y = 0.18, "Average Error = __%")
 
 error.mean <- apply(error2,2,mean)
 min(error2);max(error2)
 plot(error.mean, type = "n",
-     ylim = c(0,max(error2)+0.05),
+     ylim = c(0,max(error1)+0.05),
+     las = 1,
      xlab = "Tree",
      main = "Treatments",
-     ylab = "Error")
+     ylab = "Mean Square Error")
 for(i in 1:n){
   lines(error2[i,], col = rgb(0,0,0,alpha = 0.25))
 }
 lines(error.mean, type = "l", col = "firebrick", lty = 2, lwd= 2)
-mean(error.mean)*100
+mean(error.mean)*100 # 7.515766
 # text(x = 300, y = 0.18, "Average Error = __%")
 
 par(mfrow = c(1,1))
@@ -2244,15 +2247,21 @@ segments(x0 = 1.8, y0 = max(AUC.val2), x1 = 1.8, y1 = min(AUC.val2))
 abline(h = 0.5, lty = 2)
 
 mean(AUC.val1);min(AUC.val1);max(AUC.val1)
-# [1] 0.9270905
-# [1] 0.9181108
-# [1] 0.9395587
+# [1] 0.9270696
+# [1] 0.9181488
+# [1] 0.9393754
 
 mean(AUC.val2);min(AUC.val2);max(AUC.val2)
-# [1] 0.734153
-# [1] 0.5505018
-# [1] 0.87475
-## models are basically random (AUC of ~.5)
+# [1] 0.7257837
+# [1] 0.5655083
+# [1] 0.8820921
+
+r2.mean <- apply(r2,1,mean)
+mean(r2.mean);min(r2.mean);max(r2.mean)
+## between -0.1 - 7% of additional variance explained (average 2%)
+# [1] 0.01774606
+# [1] -0.001408677
+# [1] 0.06644681
 
 ## VarImp Plot 1
 varImp.plotting1 <- data.frame(name = c(varImp1.names[c(1),1],"spatial"),
@@ -2266,16 +2275,16 @@ max(varImp.plotting1$max)
 par(mfrow = c(1,2), oma = c(0,3,0,0))
 plot(varImp.plotting1$mean,
      ylim = c(0,3),
-     xlim = c(0,max(varImp.plotting1$max)+5), ## max of varImp.plotting$max + a few
+     xlim = c(0,max(varImp.plotting1$max)), ## max of varImp.plotting$max + a few
      las = 1,
      type = "n",
      ylab = "",
      yaxt = "n",
-     xlab = "Variable Importance")
+     xlab = "Mean Decrease Accuracy")
 axis(2, at = c(1:2), labels = varImp.plotting1$name, cex.axis = 1, las = 2)
 points(x = varImp.plotting1$mean,y = 1:2, col = "black", cex = 1, pch = 16)
 segments(x0 = varImp.plotting1$min, y0 = 1:2, x1 = varImp.plotting1$max, y1 = 1:2, col = "black", lwd = 1.5)
-abline(v = 10, lty = 2)
+# abline(v = 10, lty = 2)
 
 ## VarImp Plot 2
 varImp.plotting2 <- data.frame(name = c(varImp2.names[c(1:5),1]),
@@ -2289,16 +2298,16 @@ max(varImp.plotting2$max)
 # par(mfrow = c(1,1), oma = c(0,3,0,0))
 plot(varImp.plotting2$mean,
      ylim = c(0,6),
-     xlim = c(0,max(varImp.plotting2$max)+5), ## max of varImp.plotting$max + a few
+     xlim = c(0,max(varImp.plotting1$max)), ## max of varImp.plotting$max + a few
      las = 1,
      type = "n",
      ylab = "",
      yaxt = "n",
-     xlab = "Variable Importance")
+     xlab = "Mean Decrease Accuracy")
 axis(2, at = c(1:5), labels = varImp.plotting2$name, cex.axis = 1, las = 2)
 points(x = varImp.plotting2$mean,y = 1:5, col = "black", cex = 1, pch = 16)
 segments(x0 = varImp.plotting2$min, y0 = 1:5, x1 = varImp.plotting2$max, y1 = 1:5, col = "black", lwd = 1.5)
-abline(v = 10, lty = 2)
+# abline(v = 10, lty = 2)
 
 ## Partial Dependence Plots
 # FD <- Engaged_Lines
@@ -2316,22 +2325,19 @@ par(mfrow = c(2,2))
 
 plot(prop.rx.x[1,], prop.rx.y[1,],
      type = "l",
-     ylim = c(-0.25,1.25),
+     ylim = c(-1.25,1.25),
      col = rgb(0,0,0,0.25),
      main = "",
+     yaxt = "n",
      cex.axis = 1.5,
      cex.lab = 1.5,
      las = 1,
      xlab = "Proportion Rx Fire",
-     ylab = "Line Status")
+     ylab = "")
+axis(2, at = c(-1,0,1), line = 1, las = 1,tick = T, labels = c("Type 1", "Correct", "Type 2"), cex.axis = 1.5)
 for(i in 2:n)(
   lines(prop.rx.x[i,], prop.rx.y[i,], col = rgb(0,0,0,0.25))
 )
-abline(h = 0.5, lty = 2, lwd = 2)
-# points(x = FD$X, y = jitter(FD$LineInt, factor = .25),
-#        cex = 0.5,
-#        col = rgb(0,0,0,0.25),
-#        pch = 16)
 prop.rx.x.mean <- apply(prop.rx.x,2,mean, na.rm = T)
 prop.rx.y.mean <- apply(prop.rx.y,2,mean, na.rm = T)
 lo <- loess(prop.rx.y.mean~prop.rx.x.mean)
@@ -2339,22 +2345,19 @@ lines(y = predict(lo), x = prop.rx.x.mean[1:length(predict(lo))], col = "red", l
 
 plot(prop.thin.x[1,], prop.thin.y[1,],
      type = "l",
-     ylim = c(-0.25,1.25),
+     ylim = c(-1.25,1.25),
      col = rgb(0,0,0,0.25),
      main = "",
+     yaxt = "n",
      cex.axis = 1.5,
      cex.lab = 1.5,
      las = 1,
      xlab = "Proportion Thinning",
-     ylab = "Line Status")
+     ylab = "")
+axis(2, at = c(-1,0,1), line = 1, las = 1,tick = T, labels = c("Type 1", "Correct", "Type 2"), cex.axis = 1.5)
 for(i in 2:n)(
   lines(prop.thin.x[i,], prop.thin.y[i,], col = rgb(0,0,0,0.25))
 )
-abline(h = 0.5, lty = 2, lwd = 2)
-# points(x = FD$X, y = jitter(FD$LineInt, factor = .25),
-#        cex = 0.5,
-#        col = rgb(0,0,0,0.25),
-#        pch = 16)
 prop.thin.x.mean <- apply(prop.thin.x,2,mean, na.rm = T)
 prop.thin.y.mean <- apply(prop.thin.y,2,mean, na.rm = T)
 lo <- loess(prop.thin.y.mean~prop.thin.x.mean)
@@ -2362,22 +2365,19 @@ lines(y = predict(lo), x = prop.thin.x.mean[1:length(predict(lo))], col = "red",
 
 plot(TS.rx.x[1,], TS.rx.y[1,],
      type = "l",
-     ylim = c(-0.25,1.25),
+     ylim = c(-1.25,1.25),
      col = rgb(0,0,0,0.25),
      main = "",
+     yaxt = "n",
      cex.axis = 1.5,
      cex.lab = 1.5,
      las = 1,
      xlab = "Time Since Rx Fire",
-     ylab = "Line Status")
+     ylab = "")
+axis(2, at = c(-1,0,1), line = 1, las = 1,tick = T, labels = c("Type 1", "Correct", "Type 2"), cex.axis = 1.5)
 for(i in 2:n)(
   lines(TS.rx.x[i,], TS.rx.y[i,], col = rgb(0,0,0,0.25))
 )
-abline(h = 0.5, lty = 2, lwd = 2)
-# points(x = FD$X, y = jitter(FD$LineInt, factor = .25),
-#        cex = 0.5,
-#        col = rgb(0,0,0,0.25),
-#        pch = 16)
 TS.rx.x.mean <- apply(TS.rx.x,2,mean, na.rm = T)
 TS.rx.y.mean <- apply(TS.rx.y,2,mean, na.rm = T)
 lo <- loess(TS.rx.y.mean~TS.rx.x.mean)
@@ -2385,27 +2385,25 @@ lines(y = predict(lo), x = TS.rx.x.mean[1:length(predict(lo))], col = "red", lwd
 
 plot(TS.thin.x[1,], TS.thin.y[1,],
      type = "l",
-     ylim = c(-0.25,1.25),
+     ylim = c(-1.25,1.25),
      col = rgb(0,0,0,0.25),
      main = "",
+     yaxt = "n",
      cex.axis = 1.5,
      cex.lab = 1.5,
      las = 1,
      xlab = "Time Since Thinning",
-     ylab = "Line Status")
+     ylab = "")
+axis(2, at = c(-1,0,1), line = 1, las = 1,tick = T, labels = c("Type 1", "Correct", "Type 2"), cex.axis = 1.5)
 for(i in 2:n)(
   lines(TS.thin.x[i,], TS.thin.y[i,], col = rgb(0,0,0,0.25))
 )
-abline(h = 0.5, lty = 2, lwd = 2)
-# points(x = FD$X, y = jitter(FD$LineInt, factor = .25),
-#        cex = 0.5,
-#        col = rgb(0,0,0,0.25),
-#        pch = 16)
 TS.thin.x.mean <- apply(TS.thin.x,2,mean, na.rm = T)
 TS.thin.y.mean <- apply(TS.thin.y,2,mean, na.rm = T)
 lo <- loess(TS.thin.y.mean~TS.thin.x.mean)
 lines(y = predict(lo), x = TS.thin.x.mean[1:length(predict(lo))], col = "red", lwd = 2)
-
+par(mfrow = c(1,1))
+hist(round(training_set$stat, 0))
 
 #### splitting rf into multiple - single fire scale ####
 # library(terra)
@@ -2456,6 +2454,7 @@ balance1 <- NA
 balance2 <- NA
 error1 <- matrix(data = NA, nrow = n, ncol = 500) ## ncol = ntree
 error2 <- matrix(data = NA, nrow = n, ncol = 500) ## ncol = ntree
+r2 <- matrix(data = NA, nrow = n, ncol = 500)
 
 AUC.val1 <- NA
 AUC.val2 <- NA
@@ -2539,15 +2538,15 @@ for(i in 1:n){
                       maxnodes = 75,
                       maximize = TRUE,
                       trControl = train_control,
+                      importance = TRUE,
                       keep.forest = TRUE,
                       keep.inbag = TRUE) ## making the rf object
   y_hats1[i,1:nrow(testing_set)] <- predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2]
   y_hats1.diff[i] <- mean(as.numeric(y_hats1[i,1:nrow(testing_set)]) - (as.numeric(testing_set$stat)-1))
-  obj <- varImp(rf1)
-  varImp1.summary[,i] <- obj$Overall
-  varImp1.names[,i] <- rownames(obj)
+  varImp1.summary[,i] <- rf1$importance[,3] ## Mean decrease accuracy
+  varImp1.names[,i] <- rownames(rf1$importance)
   rf1.res[i,c(1:length(testing_set$stat))] <- predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2] - (as.numeric(testing_set$stat)-1)
-  error1[i,] <- rf1$err.rate[,1]
+  error1[i,] <- rf1$err.rate[,1] ## out of bag error
   rf.roc <- suppressMessages(roc(training_set$stat, rf1$votes[,2]))
   AUC.val1[i] <- as.numeric(auc(rf.roc))
   
@@ -2579,18 +2578,19 @@ for(i in 1:n){
                       maxnodes = 75,
                       maximize = TRUE,
                       trControl = train_control,
+                      importance = TRUE,
                       keep.forest = TRUE,
                       keep.inbag = TRUE) ## making the rf object
   y_hats2[i,1:nrow(testing_set)] <- predict(object = rf2, newdata = testing_set[, -1])
   y_hats2.diff[i] <- mean(as.numeric(y_hats2[i,1:nrow(testing_set)]) - as.numeric(testing_set$stat))
-  obj <- varImp(rf2)
-  varImp2.summary[,i] <- obj$Overall
-  varImp2.names[,i] <- rownames(obj)
+  varImp2.summary[,i] <- rf2$importance[,1]
+  varImp2.names[,i] <- rownames(rf2$importance)
   rf2.res[i,c(1:length(rf2$predicted))] <- as.numeric(rf2$predicted) - as.numeric(training_set$stat)
-  # error2[i,] <- rf2$err.rate[,1]
+  error2[i,] <- rf2$mse
   training_set$bin.out <- round(training_set$stat,0)
   rf.roc <- suppressMessages(  multiclass.roc(training_set$bin.out, rf2$predicted))
   AUC.val2[i] <- as.numeric(auc(rf.roc))
+  r2[i,] <- rf2$rsq
   
   training_set <- as.data.frame(training_set)
   prop.rx <- partialPlot(rf2, training_set, x.var = prop.rx)
@@ -2616,70 +2616,72 @@ for(i in 1:n){
 
 ## pred vs obs plot
 par(mfrow = c(1,2))
-y_hats1.diff <- y_hats1.diff*100 ## converting to %
+# y_hats1.diff <- y_hats1.diff*100 ## converting to %
 max(y_hats1.diff);min(y_hats1.diff)
 plot(x = 1:length(y_hats1.diff), y = y_hats1.diff,
      pch = 16,
      xlab = "model run",
-     ylim = c(min(y_hats1.diff)-5,max(y_hats1.diff)+5),
+     ylim = c(min(y_hats1.diff)-0.1,max(y_hats1.diff)+0.1),
      las = 1,
      main = "Space + Year",
-     ylab = "% Difference in Predicted vs.Observed",
-     cex = 1)
+     ylab = "Average Predicted - Observed",
+     cex = 1) ## Difference in Predicted Probability vs.Observed Class
 round(mean(y_hats1.diff), digits = 3)
 abline(h = mean(y_hats1.diff), col="firebrick4", lty = 2)
-# text(x = 30, y = 50, "Average difference = __%") 
+# text("topright", "Average difference = 6.84%") 
 
-y_hats2.diff <- y_hats2.diff*100 ## converting to %
+# y_hats2.diff <- y_hats2.diff*100 ## converting to %
 max(y_hats2.diff);min(y_hats2.diff)
 plot(x = 1:length(y_hats2.diff), y = y_hats2.diff,
      pch = 16,
      xlab = "model run",
-     ylim = c(min(y_hats2.diff)-5,max(y_hats2.diff)+5),
+     ylim = c(min(y_hats1.diff)-0.1,max(y_hats1.diff)+0.1),
      las = 1,
      main = "Treatments",
-     ylab = "% Difference in Predicted vs.Observed",
-     cex = 1)
+     ylab = "Average Predicted - Observed",
+     cex = 1) ## predicted probability of residual - observed probability of residual (from rf1)
 round(mean(y_hats2.diff), digits = 3)
 abline(h = mean(y_hats2.diff), col="firebrick4", lty = 2)
-# text(x = 30, y = 50, "Average difference = __%") 
+# text(x = 30, y = 50, "Average difference = 12.4%") 
 
-mean(balance1);min(balance1);max(balance1)
-# [1] 0.6837265
-# [1] 0.6656085
-# [1] 0.7054507
+mean(balance1);min(balance1);max(balance1) ## balance of line status
+# [1] 0.7610189
+# [1] 0.7474227
+# [1] 0.7775446
 
-mean(balance2);min(balance2);max(balance2)
-# [1] 0.04702833
-# [1] 0.02521008
-# [1] 0.06291834
+mean(balance2);min(balance2);max(balance2) ## average residual error from rf1 (per model run)
+# [1] 0.01013345
+# [1] -0.0140125
+# [1] 0.04282067
 
 error.mean <- apply(error1,2,mean)
 min(error1);max(error1)
 plot(error.mean, type = "n",
      ylim = c(0,max(error1)+0.05),
+     las = 1,
      xlab = "Tree",
      main = "Space + Year",
-     ylab = "Error")
+     ylab = "OOB Error")
 for(i in 1:n){
   lines(error1[i,], col = rgb(0,0,0,alpha = 0.25))
 }
 lines(error.mean, type = "l", col = "firebrick", lty = 2, lwd= 2)
-mean(error.mean)*100
+mean(error.mean)*100 # 3.82504
 # text(x = 300, y = 0.18, "Average Error = __%")
 
 error.mean <- apply(error2,2,mean)
 min(error2);max(error2)
 plot(error.mean, type = "n",
-     ylim = c(0,max(error2)+0.05),
+     ylim = c(0,max(error1)+0.05),
+     las = 1,
      xlab = "Tree",
      main = "Treatments",
-     ylab = "Error")
+     ylab = "Mean Square Error")
 for(i in 1:n){
   lines(error2[i,], col = rgb(0,0,0,alpha = 0.25))
 }
 lines(error.mean, type = "l", col = "firebrick", lty = 2, lwd= 2)
-mean(error.mean)*100
+mean(error.mean)*100 # 2.47091
 # text(x = 300, y = 0.18, "Average Error = __%")
 
 par(mfrow = c(1,1))
@@ -2699,15 +2701,21 @@ segments(x0 = 1.8, y0 = max(AUC.val2), x1 = 1.8, y1 = min(AUC.val2))
 abline(h = 0.5, lty = 2)
 
 mean(AUC.val1);min(AUC.val1);max(AUC.val1)
-# [1] 0.982703
-# [1] 0.9705612
-# [1] 0.9929543
+# [1] 0.9829478
+# [1] 0.9728386
+# [1] 0.9926972
 
 mean(AUC.val2);min(AUC.val2);max(AUC.val2)
-# [1] 0.4983439
-# [1] 0.433674
-# [1] 0.5587414
-## models are basically random (AUC of ~.5)
+# [1] 0.8980859
+# [1] 0.5812789
+# [1] 0.9824561
+
+r2.mean <- apply(r2,1,mean)
+mean(r2.mean);min(r2.mean);max(r2.mean)
+## between -06 - 5% of  variance explained (average -2%)
+# [1] -0.01551323
+# [1] -0.06556411
+# [1] 0.05114261
 
 ## VarImp Plot 1
 varImp.plotting1 <- data.frame(name = c(varImp1.names[c(1),1],"spatial"),
@@ -2721,16 +2729,16 @@ max(varImp.plotting1$max)
 par(mfrow = c(1,2), oma = c(0,3,0,0))
 plot(varImp.plotting1$mean,
      ylim = c(0,3),
-     xlim = c(0,max(varImp.plotting1$max)+5), ## max of varImp.plotting$max + a few
+     xlim = c(0,max(varImp.plotting1$max)), ## max of varImp.plotting$max + a few
      las = 1,
      type = "n",
      ylab = "",
      yaxt = "n",
-     xlab = "Variable Importance")
+     xlab = "Mean Decrease Accuracy")
 axis(2, at = c(1:2), labels = varImp.plotting1$name, cex.axis = 1, las = 2)
 points(x = varImp.plotting1$mean,y = 1:2, col = "black", cex = 1, pch = 16)
 segments(x0 = varImp.plotting1$min, y0 = 1:2, x1 = varImp.plotting1$max, y1 = 1:2, col = "black", lwd = 1.5)
-abline(v = 10, lty = 2)
+# abline(v = 10, lty = 2)
 
 ## VarImp Plot 2
 varImp.plotting2 <- data.frame(name = c(varImp2.names[c(1:5),1]),
@@ -2744,16 +2752,16 @@ max(varImp.plotting2$max)
 # par(mfrow = c(1,1), oma = c(0,3,0,0))
 plot(varImp.plotting2$mean,
      ylim = c(0,6),
-     xlim = c(0,max(varImp.plotting2$max)+5), ## max of varImp.plotting$max + a few
+     xlim = c(0,max(varImp.plotting1$max)), ## max of varImp.plotting$max + a few
      las = 1,
      type = "n",
      ylab = "",
      yaxt = "n",
-     xlab = "Variable Importance")
+     xlab = "Mean Decrease Accuracy")
 axis(2, at = c(1:5), labels = varImp.plotting2$name, cex.axis = 1, las = 2)
 points(x = varImp.plotting2$mean,y = 1:5, col = "black", cex = 1, pch = 16)
 segments(x0 = varImp.plotting2$min, y0 = 1:5, x1 = varImp.plotting2$max, y1 = 1:5, col = "black", lwd = 1.5)
-abline(v = 10, lty = 2)
+# abline(v = 10, lty = 2)
 
 ## Partial Dependence Plots
 # FD <- Engaged_Lines
@@ -2771,22 +2779,19 @@ par(mfrow = c(2,2))
 
 plot(prop.rx.x[1,], prop.rx.y[1,],
      type = "l",
-     ylim = c(-0.25,1.25),
+     ylim = c(-1.25,1.25),
      col = rgb(0,0,0,0.25),
      main = "",
+     yaxt = "n",
      cex.axis = 1.5,
      cex.lab = 1.5,
      las = 1,
      xlab = "Proportion Rx Fire",
-     ylab = "Line Status")
+     ylab = "")
+axis(2, at = c(-1,0,1), line = 1, las = 1,tick = T, labels = c("Type 1", "Correct", "Type 2"), cex.axis = 1.5)
 for(i in 2:n)(
   lines(prop.rx.x[i,], prop.rx.y[i,], col = rgb(0,0,0,0.25))
 )
-abline(h = 0.5, lty = 2, lwd = 2)
-# points(x = FD$X, y = jitter(FD$LineInt, factor = .25),
-#        cex = 0.5,
-#        col = rgb(0,0,0,0.25),
-#        pch = 16)
 prop.rx.x.mean <- apply(prop.rx.x,2,mean, na.rm = T)
 prop.rx.y.mean <- apply(prop.rx.y,2,mean, na.rm = T)
 lo <- loess(prop.rx.y.mean~prop.rx.x.mean)
@@ -2794,22 +2799,19 @@ lines(y = predict(lo), x = prop.rx.x.mean[1:length(predict(lo))], col = "red", l
 
 plot(prop.thin.x[1,], prop.thin.y[1,],
      type = "l",
-     ylim = c(-0.25,1.25),
+     ylim = c(-1.25,1.25),
      col = rgb(0,0,0,0.25),
      main = "",
+     yaxt = "n",
      cex.axis = 1.5,
      cex.lab = 1.5,
      las = 1,
      xlab = "Proportion Thinning",
-     ylab = "Line Status")
+     ylab = "")
+axis(2, at = c(-1,0,1), line = 1, las = 1,tick = T, labels = c("Type 1", "Correct", "Type 2"), cex.axis = 1.5)
 for(i in 2:n)(
   lines(prop.thin.x[i,], prop.thin.y[i,], col = rgb(0,0,0,0.25))
 )
-abline(h = 0.5, lty = 2, lwd = 2)
-# points(x = FD$X, y = jitter(FD$LineInt, factor = .25),
-#        cex = 0.5,
-#        col = rgb(0,0,0,0.25),
-#        pch = 16)
 prop.thin.x.mean <- apply(prop.thin.x,2,mean, na.rm = T)
 prop.thin.y.mean <- apply(prop.thin.y,2,mean, na.rm = T)
 lo <- loess(prop.thin.y.mean~prop.thin.x.mean)
@@ -2817,22 +2819,19 @@ lines(y = predict(lo), x = prop.thin.x.mean[1:length(predict(lo))], col = "red",
 
 plot(TS.rx.x[1,], TS.rx.y[1,],
      type = "l",
-     ylim = c(-0.25,1.25),
+     ylim = c(-1.25,1.25),
      col = rgb(0,0,0,0.25),
      main = "",
+     yaxt = "n",
      cex.axis = 1.5,
      cex.lab = 1.5,
      las = 1,
      xlab = "Time Since Rx Fire",
-     ylab = "Line Status")
+     ylab = "")
+axis(2, at = c(-1,0,1), line = 1, las = 1,tick = T, labels = c("Type 1", "Correct", "Type 2"), cex.axis = 1.5)
 for(i in 2:n)(
   lines(TS.rx.x[i,], TS.rx.y[i,], col = rgb(0,0,0,0.25))
 )
-abline(h = 0.5, lty = 2, lwd = 2)
-# points(x = FD$X, y = jitter(FD$LineInt, factor = .25),
-#        cex = 0.5,
-#        col = rgb(0,0,0,0.25),
-#        pch = 16)
 TS.rx.x.mean <- apply(TS.rx.x,2,mean, na.rm = T)
 TS.rx.y.mean <- apply(TS.rx.y,2,mean, na.rm = T)
 lo <- loess(TS.rx.y.mean~TS.rx.x.mean)
@@ -2840,24 +2839,22 @@ lines(y = predict(lo), x = TS.rx.x.mean[1:length(predict(lo))], col = "red", lwd
 
 plot(TS.thin.x[1,], TS.thin.y[1,],
      type = "l",
-     ylim = c(-0.25,1.25),
+     ylim = c(-1.25,1.25),
      col = rgb(0,0,0,0.25),
      main = "",
+     yaxt = "n",
      cex.axis = 1.5,
      cex.lab = 1.5,
      las = 1,
      xlab = "Time Since Thinning",
-     ylab = "Line Status")
+     ylab = "")
+axis(2, at = c(-1,0,1), line = 1, las = 1,tick = T, labels = c("Type 1", "Correct", "Type 2"), cex.axis = 1.5)
 for(i in 2:n)(
   lines(TS.thin.x[i,], TS.thin.y[i,], col = rgb(0,0,0,0.25))
 )
-abline(h = 0.5, lty = 2, lwd = 2)
-# points(x = FD$X, y = jitter(FD$LineInt, factor = .25),
-#        cex = 0.5,
-#        col = rgb(0,0,0,0.25),
-#        pch = 16)
 TS.thin.x.mean <- apply(TS.thin.x,2,mean, na.rm = T)
 TS.thin.y.mean <- apply(TS.thin.y,2,mean, na.rm = T)
 lo <- loess(TS.thin.y.mean~TS.thin.x.mean)
 lines(y = predict(lo), x = TS.thin.x.mean[1:length(predict(lo))], col = "red", lwd = 2)
-
+par(mfrow = c(1,1))
+hist(round(training_set$stat, 0))
