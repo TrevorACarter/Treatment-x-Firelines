@@ -1953,7 +1953,11 @@ TS.thin.x.mean <- apply(TS.thin.x,2,mean, na.rm = T)
 TS.thin.y.mean <- apply(TS.thin.y,2,mean, na.rm = T)
 lo <- loess(TS.thin.y.mean~TS.thin.x.mean)
 lines(y = predict(lo), x = TS.thin.x.mean[1:length(predict(lo))], col = "red", lwd = 2)
-
+par(mfrow = c(1,1))
+hist(round(training_set$stat, 0),
+     main = "Example Training Data Western USA",
+     las = 1,
+     xlab = "Error Category")
 
 #### splitting rf into multiple - southern rockies scale ####
 ## will need to extract the engaged lines data to southern rockies
@@ -2004,10 +2008,10 @@ balance1 <- NA
 balance2 <- NA
 error1 <- matrix(data = NA, nrow = n, ncol = 500) ## ncol = ntree
 error2 <- matrix(data = NA, nrow = n, ncol = 500) ## ncol = ntree
-r2 <- matrix(data = NA, nrow = n, ncol = 500)
+r2_SR <- matrix(data = NA, nrow = n, ncol = 500)
 
-AUC.val1 <- NA
-AUC.val2 <- NA
+AUC.val1_SR <- NA
+AUC.val2_SR <- NA
 
 r <- rast("LandFire TIFs/WF_dist.tif")
 blank <- rast(ext(r), resolution=100, vals=NA) ## gonna expand this
@@ -2094,7 +2098,7 @@ for(i in 1:n){
   rf1.res[i,c(1:length(testing_set$stat))] <- predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2] - (as.numeric(testing_set$stat)-1)
   error1[i,] <- rf1$err.rate[,1] ## out of bag error
   rf.roc <- suppressMessages(roc(training_set$stat, rf1$votes[,2]))
-  AUC.val1[i] <- as.numeric(auc(rf.roc))
+  AUC.val1_SR[i] <- as.numeric(auc(rf.roc))
   
   ## second model predicting the residuals
   res4pred <- rf1.res[i,!is.na(rf1.res[i,])]
@@ -2135,8 +2139,8 @@ for(i in 1:n){
   error2[i,] <- rf2$mse
   training_set$bin.out <- round(training_set$stat,0)
   rf.roc <- suppressMessages(  multiclass.roc(training_set$bin.out, rf2$predicted))
-  AUC.val2[i] <- as.numeric(auc(rf.roc))
-  r2[i,] <- rf2$rsq
+  AUC.val2_SR[i] <- as.numeric(auc(rf.roc))
+  r2_SR[i,] <- rf2$rsq
   
   training_set <- as.data.frame(training_set)
   prop.rx <- partialPlot(rf2, training_set, x.var = prop.rx)
@@ -2240,23 +2244,23 @@ plot(x = c(1,2),
      type = "n")
 axis(1, at = c(1.2,1.8), line = 1, tick = F, labels = c("Space + Year", "Treatments"), cex.axis = 1.5)
 points(x = c(1.2,1.8),
-       y = c(mean(AUC.val1), mean(AUC.val2)),
+       y = c(mean(AUC.val1_SR), mean(AUC.val2_SR)),
        pch = 16)
-segments(x0 = 1.2, y0 = max(AUC.val1), x1 = 1.2, y1 = min(AUC.val1))
-segments(x0 = 1.8, y0 = max(AUC.val2), x1 = 1.8, y1 = min(AUC.val2))
+segments(x0 = 1.2, y0 = max(AUC.val1_SR), x1 = 1.2, y1 = min(AUC.val1_SR))
+segments(x0 = 1.8, y0 = max(AUC.val2_SR), x1 = 1.8, y1 = min(AUC.val2_SR))
 abline(h = 0.5, lty = 2)
 
-mean(AUC.val1);min(AUC.val1);max(AUC.val1)
+mean(AUC.val1_SR);min(AUC.val1_SR);max(AUC.val1_SR)
 # [1] 0.9270696
 # [1] 0.9181488
 # [1] 0.9393754
 
-mean(AUC.val2);min(AUC.val2);max(AUC.val2)
+mean(AUC.val2_SR);min(AUC.val2_SR);max(AUC.val2_SR)
 # [1] 0.7257837
 # [1] 0.5655083
 # [1] 0.8820921
 
-r2.mean <- apply(r2,1,mean)
+r2.mean <- apply(r2_SR,1,mean)
 mean(r2.mean);min(r2.mean);max(r2.mean)
 ## between -0.1 - 7% of additional variance explained (average 2%)
 # [1] 0.01774606
@@ -2403,7 +2407,10 @@ TS.thin.y.mean <- apply(TS.thin.y,2,mean, na.rm = T)
 lo <- loess(TS.thin.y.mean~TS.thin.x.mean)
 lines(y = predict(lo), x = TS.thin.x.mean[1:length(predict(lo))], col = "red", lwd = 2)
 par(mfrow = c(1,1))
-hist(round(training_set$stat, 0))
+hist(round(training_set$stat, 0),
+     main = "Example Training Data Southern Rockies",
+     las = 1,
+     xlab = "Error Category")
 
 #### splitting rf into multiple - single fire scale ####
 # library(terra)
@@ -2454,10 +2461,10 @@ balance1 <- NA
 balance2 <- NA
 error1 <- matrix(data = NA, nrow = n, ncol = 500) ## ncol = ntree
 error2 <- matrix(data = NA, nrow = n, ncol = 500) ## ncol = ntree
-r2 <- matrix(data = NA, nrow = n, ncol = 500)
+r2_CP <- matrix(data = NA, nrow = n, ncol = 500)
 
-AUC.val1 <- NA
-AUC.val2 <- NA
+AUC.val1_CP <- NA
+AUC.val2_CP <- NA
 
 r <- rast("LandFire TIFs/WF_dist.tif")
 blank <- rast(ext(r), resolution=100, vals=NA) ## gonna expand this
@@ -2548,7 +2555,7 @@ for(i in 1:n){
   rf1.res[i,c(1:length(testing_set$stat))] <- predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2] - (as.numeric(testing_set$stat)-1)
   error1[i,] <- rf1$err.rate[,1] ## out of bag error
   rf.roc <- suppressMessages(roc(training_set$stat, rf1$votes[,2]))
-  AUC.val1[i] <- as.numeric(auc(rf.roc))
+  AUC.val1_CP[i] <- as.numeric(auc(rf.roc))
   
   ## second model predicting the residuals
   res4pred <- rf1.res[i,!is.na(rf1.res[i,])]
@@ -2589,8 +2596,8 @@ for(i in 1:n){
   error2[i,] <- rf2$mse
   training_set$bin.out <- round(training_set$stat,0)
   rf.roc <- suppressMessages(  multiclass.roc(training_set$bin.out, rf2$predicted))
-  AUC.val2[i] <- as.numeric(auc(rf.roc))
-  r2[i,] <- rf2$rsq
+  AUC.val2_CP[i] <- as.numeric(auc(rf.roc))
+  r2_CP[i,] <- rf2$rsq
   
   training_set <- as.data.frame(training_set)
   prop.rx <- partialPlot(rf2, training_set, x.var = prop.rx)
@@ -2694,23 +2701,23 @@ plot(x = c(1,2),
      type = "n")
 axis(1, at = c(1.2,1.8), line = 1, tick = F, labels = c("Space + Year", "Treatments"), cex.axis = 1.5)
 points(x = c(1.2,1.8),
-       y = c(mean(AUC.val1), mean(AUC.val2)),
+       y = c(mean(AUC.val1_CP), mean(AUC.val2_CP)),
        pch = 16)
-segments(x0 = 1.2, y0 = max(AUC.val1), x1 = 1.2, y1 = min(AUC.val1))
-segments(x0 = 1.8, y0 = max(AUC.val2), x1 = 1.8, y1 = min(AUC.val2))
+segments(x0 = 1.2, y0 = max(AUC.val1_CP), x1 = 1.2, y1 = min(AUC.val1_CP))
+segments(x0 = 1.8, y0 = max(AUC.val2_CP), x1 = 1.8, y1 = min(AUC.val2_CP))
 abline(h = 0.5, lty = 2)
 
-mean(AUC.val1);min(AUC.val1);max(AUC.val1)
+mean(AUC.val1_CP);min(AUC.val1_CP);max(AUC.val1_CP)
 # [1] 0.9829478
 # [1] 0.9728386
 # [1] 0.9926972
 
-mean(AUC.val2);min(AUC.val2);max(AUC.val2)
+mean(AUC.val2_CP);min(AUC.val2_CP);max(AUC.val2_CP)
 # [1] 0.8980859
 # [1] 0.5812789
 # [1] 0.9824561
 
-r2.mean <- apply(r2,1,mean)
+r2.mean <- apply(r2_CP,1,mean)
 mean(r2.mean);min(r2.mean);max(r2.mean)
 ## between -06 - 5% of  variance explained (average -2%)
 # [1] -0.01551323
@@ -2857,4 +2864,76 @@ TS.thin.y.mean <- apply(TS.thin.y,2,mean, na.rm = T)
 lo <- loess(TS.thin.y.mean~TS.thin.x.mean)
 lines(y = predict(lo), x = TS.thin.x.mean[1:length(predict(lo))], col = "red", lwd = 2)
 par(mfrow = c(1,1))
-hist(round(training_set$stat, 0))
+hist(round(training_set$stat, 0),
+     main = "Example Training Data Cameron Peak",
+     las = 1,
+     xlab = "Error Category")
+
+#### Single AUC Plot all three scales ####
+par(mfrow = c(1,1))
+plot(x = c(1,2),
+     y = c(0,1),
+     las = 1,
+     xaxt = "n",
+     xlab = "",
+     ylab = "AUC",
+     type = "n")
+axis(1, at = c(1.2,1.8), line = 1, tick = F, labels = c("Space + Year", "Treatments"), cex.axis = 1.5)
+points(x = c(1.1,1.7),
+       y = c(mean(AUC.val1), mean(AUC.val2)),
+       pch = 16,
+       col = "goldenrod")
+points(x = c(1.2,1.8),
+       y = c(mean(AUC.val1_SR), mean(AUC.val2_SR)),
+       pch = 16,
+       col = "navy")
+points(x = c(1.3,1.9),
+       y = c(mean(AUC.val1_CP), mean(AUC.val2_CP)),
+       pch = 16,
+       col = "magenta3")
+
+segments(x0 = 1.1, y0 = max(AUC.val1), x1 = 1.1, y1 = min(AUC.val1), col = "goldenrod")
+segments(x0 = 1.7, y0 = max(AUC.val2), x1 = 1.7, y1 = min(AUC.val2), col = "goldenrod")
+segments(x0 = 1.2, y0 = max(AUC.val1_SR), x1 = 1.2, y1 = min(AUC.val1_SR), col = "navy")
+segments(x0 = 1.8, y0 = max(AUC.val2_SR), x1 = 1.8, y1 = min(AUC.val2_SR), col = "navy")
+segments(x0 = 1.3, y0 = max(AUC.val1_CP), x1 = 1.3, y1 = min(AUC.val1_CP), col = "magenta3")
+segments(x0 = 1.9, y0 = max(AUC.val2_CP), x1 = 1.9, y1 = min(AUC.val2_CP), col = "magenta3")
+abline(h = 0.5, lty = 2)
+legend("bottomright", legend = c("western USA", "Southern Rockies", "Cameron Pass"),
+       col = c("goldenrod","navy","magenta3"), pch = 16, ncol = 1, bty = "n")
+
+
+r2.mean1 <- apply(r2,1,mean)
+r2.mean2 <- apply(r2_SR,1,mean)
+r2.mean3 <- apply(r2_CP,1,mean)
+
+
+## R2
+par(mfrow = c(1,1))
+plot(x = c(1,2),
+     y = c(-1,1),
+     las = 1,
+     xaxt = "n",
+     xlab = "",
+     ylab = "R2",
+     type = "n")
+abline(h = 0, lty = 2)
+points(x = c(1.4),
+       y = mean(r2.mean1),
+       pch = 16,
+       col = "goldenrod")
+points(x = c(1.5),
+       y = mean(r2.mean2),
+       pch = 16,
+       col = "navy")
+points(x = c(1.6),
+       y = mean(r2.mean3),
+       pch = 16,
+       col = "magenta3")
+
+segments(x0 = 1.4, y0 = max(r2.mean1), x1 = 1.4, y1 = min(r2.mean1), col = "goldenrod")
+segments(x0 = 1.5, y0 = max(r2.mean2), x1 = 1.5, y1 = min(r2.mean2), col = "navy")
+segments(x0 = 1.6, y0 = max(r2.mean3), x1 = 1.6, y1 = min(r2.mean3), col = "magenta3")
+abline(h = 0, lty = 2)
+legend("bottomright", legend = c("western USA", "Southern Rockies", "Cameron Pass"),
+       col = c("goldenrod","navy","magenta3"), pch = 16, ncol = 1, bty = "n")
