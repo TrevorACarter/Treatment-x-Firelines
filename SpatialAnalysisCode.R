@@ -306,7 +306,7 @@ gc()
 
 #### Extracting Treatment History for Fire Lines ####
 vec <- seq(2018,2024, by = 1) ## change to reflect data range
-i <- 4
+i <- 4 ## specifying i because for loop was too memory intensive
 # Engaged_Lines <- NA
 Treatment_Boundary <- NA
 Inside_Treatment <- NA
@@ -952,7 +952,7 @@ gc()
 
 write.csv(Inside_Treatment, "Inside_Treatment.csv")
 
-#### Odds of treatment on a perimeter ####
+#### Odds of treatment on a perimeter Western USA ####
 setwd("D:/Outside Boundary")
 IT <- read.csv("Inside_Treatment.csv")
 TB <- read.csv("Treatment_Boundary.csv")
@@ -1156,6 +1156,156 @@ test$rx.odds[test$rx.odds == -1] <- 0
 test$b.odds[test$b.odds == -1] <- 0
 test$n.odds[test$n.odds == -1] <- 0
 test$year <- as.factor(test$year)
+
+#### Odds of treatment on a perimeter Southern Rocky Mountain ####
+library(terra)
+W_Fires <- vect("D:/Outside Boundary/NIFC Polygons/WF_Fires.shp")
+sr <- vect("D:/Outside Boundary/Geographic Subsets/SouthernRockyBoundary_10kmBuff.shp")
+SR_Fires <- crop(W_Fires,sr)
+SR_Fires <- as.data.frame(SR_Fires)
+SR_FireTrt_Hist <- FireTrtHist[FireTrtHist$name %in% SR_Fires$IncidentNa,]
+
+smallfires <- SR_FireTrt_Hist[SR_FireTrt_Hist$tot < 10000,]
+megafires <- SR_FireTrt_Hist[SR_FireTrt_Hist$tot >= 10000,]
+
+par(mfrow = c(2,1))
+## small fires
+df <- data.frame(per.eff = c(smallfires$thin.odds,smallfires$rx.odds,smallfires$b.odds,smallfires$n.odds),
+                 trt = c(rep("thin", nrow(smallfires)), rep("rx", nrow(smallfires)), rep("b", nrow(smallfires)), rep("n",nrow(smallfires))))
+a1 <- aov(per.eff ~ trt, data = df)
+summary(a1)
+TukeyHSD(a1)
+aggregate(per.eff ~ trt, data = df, mean) ## ~ 12% more likely ot be in a perimeter for small fires
+
+se <- function(x, na.rm = FALSE){sd(x, na.rm = na.rm)/sqrt(length(!is.na(x)))} ## creating a function for standard error
+plot(x = c(1:4),
+     ylim = c(-1.1,1.1),
+     las = 1,
+     cex.axis = 1.5,
+     ylab = "", ## density
+     type = "n",
+     xaxt = "n",
+     xlab = "") ## disturbance history
+axis(1, at = c(1:4), line = 1, tick = F, labels = c("Thin", "Rx", "Both", "Neither"), cex.axis = 1.5)
+abline(h = 0, lty = 2)
+points(x = jitter(rep(1, length(df$per.eff[df$trt == "thin"])), factor = 2),
+       y = df$per.eff[df$trt == "thin"],
+       col = rgb(0,0,0, alpha = 0.5),
+       pch = 19)
+points(x = jitter(rep(2, length(df$per.eff[df$trt == "rx"])), factor = 2),
+       y = df$per.eff[df$trt == "rx"],
+       col = rgb(0,0,0, alpha = 0.5),
+       pch = 19)
+points(x = jitter(rep(3, length(df$per.eff[df$trt == "b"])), factor = 2),
+       y = df$per.eff[df$trt == "b"],
+       col = rgb(0,0,0, alpha = 0.5),
+       pch = 19)
+points(x = jitter(rep(4, length(df$per.eff[df$trt == "n"])), factor = 2),
+       y = df$per.eff[df$trt == "n"],
+       col = rgb(0,0,0, alpha = 0.5),
+       pch = 19)
+points(x = 1,
+       y = mean(df$per.eff[df$trt == "thin"], na.rm = TRUE),
+       col = rgb(1,0,0, alpha = 1),
+       pch = 16)
+segments(y0 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x0 = 1, 
+         y1 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x1 = 1, 
+         col = rgb(1,0,0),lwd = 1.5)
+points(x = 2,
+       y = mean(df$per.eff[df$trt == "rx"], na.rm = TRUE),
+       col = rgb(1,0,0, alpha = 1),
+       pch = 16)
+segments(y0 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x0 = 2, 
+         y1 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x1 = 2, 
+         col = rgb(1,0,0),lwd = 1.5)
+points(x = 3,
+       y = mean(df$per.eff[df$trt == "b"], na.rm = TRUE),
+       col = rgb(1,0,0, alpha = 1),
+       pch = 16)
+segments(y0 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x0 = 3, 
+         y1 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x1 = 3, 
+         col = rgb(1,0,0),lwd = 1.5)
+points(x = 4,
+       y = mean(df$per.eff[df$trt == "n"], na.rm = TRUE),
+       col = rgb(1,0,0, alpha = 1),
+       pch = 16)
+segments(y0 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x0 = 4, 
+         y1 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x1 = 4, 
+         col = rgb(1,0,0),lwd = 1.5)
+
+a1 <- aov(per.eff ~ trt, data = df)
+summary(a1)
+TukeyHSD(a1)
+
+## mega fires
+df <- data.frame(per.eff = c(megafires$thin.odds,megafires$rx.odds,megafires$b.odds,megafires$n.odds),
+                 trt = c(rep("thin", nrow(megafires)), rep("rx", nrow(megafires)), rep("b", nrow(megafires)), rep("n",nrow(megafires))))
+a1 <- aov(per.eff ~ trt, data = df)
+summary(a1)
+TukeyHSD(a1)
+aggregate(per.eff ~ trt, data = df, mean) ## ~ 40% more likely to be in the interior for large fires
+
+
+se <- function(x, na.rm = FALSE){sd(x, na.rm = na.rm)/sqrt(length(!is.na(x)))} ## creating a function for standard error
+plot(x = c(1:4),
+     ylim = c(-1.1,1.1),
+     las = 1,
+     cex.axis = 1.5,
+     ylab = "", ## density
+     type = "n",
+     xaxt = "n",
+     xlab = "") ## disturbance history
+axis(1, at = c(1:4), line = 1, tick = F, labels = c("Thin", "Rx", "Both", "Neither"), cex.axis = 1.5)
+abline(h = 0, lty = 2)
+points(x = jitter(rep(1, length(df$per.eff[df$trt == "thin"])), factor = 2),
+       y = df$per.eff[df$trt == "thin"],
+       col = rgb(0,0,0, alpha = 0.5),
+       pch = 19)
+points(x = jitter(rep(2, length(df$per.eff[df$trt == "rx"])), factor = 2),
+       y = df$per.eff[df$trt == "rx"],
+       col = rgb(0,0,0, alpha = 0.5),
+       pch = 19)
+points(x = jitter(rep(3, length(df$per.eff[df$trt == "b"])), factor = 2),
+       y = df$per.eff[df$trt == "b"],
+       col = rgb(0,0,0, alpha = 0.5),
+       pch = 19)
+points(x = jitter(rep(4, length(df$per.eff[df$trt == "n"])), factor = 2),
+       y = df$per.eff[df$trt == "n"],
+       col = rgb(0,0,0, alpha = 0.5),
+       pch = 19)
+points(x = 1,
+       y = mean(df$per.eff[df$trt == "thin"], na.rm = TRUE),
+       col = rgb(1,0,0, alpha = 1),
+       pch = 16)
+segments(y0 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x0 = 1, 
+         y1 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x1 = 1, 
+         col = rgb(1,0,0),lwd = 1.5)
+points(x = 2,
+       y = mean(df$per.eff[df$trt == "rx"], na.rm = TRUE),
+       col = rgb(1,0,0, alpha = 1),
+       pch = 16)
+segments(y0 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x0 = 2, 
+         y1 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x1 = 2, 
+         col = rgb(1,0,0),lwd = 1.5)
+points(x = 3,
+       y = mean(df$per.eff[df$trt == "b"], na.rm = TRUE),
+       col = rgb(1,0,0, alpha = 1),
+       pch = 16)
+segments(y0 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x0 = 3, 
+         y1 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x1 = 3, 
+         col = rgb(1,0,0),lwd = 1.5)
+points(x = 4,
+       y = mean(df$per.eff[df$trt == "n"], na.rm = TRUE),
+       col = rgb(1,0,0, alpha = 1),
+       pch = 16)
+segments(y0 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x0 = 4, 
+         y1 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x1 = 4, 
+         col = rgb(1,0,0),lwd = 1.5)
+
+a1 <- aov(per.eff ~ trt, data = df)
+summary(a1)
+TukeyHSD(a1)
+
 
 
 #### Fire Lines Modelling - all vars in one model ####
