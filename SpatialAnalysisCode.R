@@ -1,13 +1,25 @@
+#### Begin - Load Dependencies and Set WD ####
 library(terra)
-# WesternStates <- vect("D:/Outside Boundary/Census State Boundaries/WesternStates.shp")
-WesternForests <- vect("D:/Outside Boundary/US EPA Ecoregions/WesternForestEcoregions.shp")
+library(sf)
+library(exactextractr)
+
+setwd("D:/Outside Boundary")
+
+
+#### Load Extent for Cleaning Data ####
+# WesternStates <- vect("./Census State Boundaries/WesternStates.shp")
+WesternForests <- vect("./US EPA Ecoregions/WesternForestEcoregions.shp")
 
 #### Adding Raster files from LandFire (1999-2024) ####
-setwd("D:/Outside Boundary/LandFire TIFs")
-temp <- list.files(pattern="*.tif") ## creating a vector that has all the files in the working directory with .xlsx extensions
+
+temp <- list.files(path = "./LandFire TIFs", pattern="*.tif") ## creating a vector that has all the files in the working directory with .xlsx extensions
 temp <- temp[1:26]
 
-for(i in 1:length(temp)) assign(temp[i], terra::rast(temp[i])) ## loading in the shapefiles I want
+for(i in 1:length(temp)){
+  path <- paste("./LandFire TIFs/", temp[i], sep = "")
+  assign(temp[i], terra::rast(path))
+} ## loading in the shapefiles I want
+rm(i);rm(path);rm(temp)
 
 ## stacking the rasters
 dist_stack <- c(LF99_Dist.tif,
@@ -31,11 +43,14 @@ writeRaster(WF_dist, "WF_dist.tif", overwrite = TRUE)
 
 
 #### Adding NIFC Fire Line Data (2018-2024) ####  
-setwd("D:/Outside Boundary/NIFC Lines")
-temp <- list.files(pattern="*.shp") ## creating a vector that has all the files in the working directory with .xlsx extensions
+temp <- list.files(path = "./NIFC Lines/",pattern="*.shp") ## creating a vector that has all the files in the working directory with .shp extensions
 temp <- temp[1:7]
 
-for(i in 1:length(temp)) assign(temp[i], terra::vect(temp[i])) ## loading in the shapefiles I want
+for(i in 1:length(temp)) {
+  path <- paste("./NIFC Lines/", temp[i], sep = "") ## specifying the relative pathway for assign
+  assign(temp[i], terra::vect(path)) ## assigning the shapefiles
+} ## loading in the shapefiles I want
+rm(i);rm(path);rm(temp)
 
 EventLine2018.shp$year <- 2018
 EventLine2019.shp$year <- 2019
@@ -57,11 +72,13 @@ gc()
 
 vec <- values(WF_FLs)
 colnames(vec) ## Did a double check with all years, confirmed that Feature Cat is only needed column to query
+table(vec$DeleteThis)
 table(unique(vec$year))
 table(vec$FeatureCat)
 rm(vec);gc()
 
-WF_FLs <- WF_FLs[WF_FLs$FeatureCat == "Completed Burnout" |
+WF_FLs <- WF_FLs[WF_FLs$DeleteThis == "No" &
+                   WF_FLs$FeatureCat == "Completed Burnout" |
                    WF_FLs$FeatureCat == "Completed Dozer Line" |
                    WF_FLs$FeatureCat == "Completed Fuel Break" | 
                    WF_FLs$FeatureCat == "Completed Hand Line" |
@@ -76,16 +93,17 @@ table(vec$FeatureCat)
 rm(vec)
 gc()
 
-getwd()
-writeVector(WF_FLs, "WF_FLs.shp", overwrite = TRUE)
+writeVector(WF_FLs, "./NIFC Lines/WF_FLs.shp", overwrite = TRUE)
 
 #### Adding Fire Polygon Data from NIFC (2018-2024) ####
-setwd("D:/Outside Boundary/NIFC Polygons")
-temp <- list.files(pattern="*.shp") ## creating a vector that has all the files in the working directory with .xlsx extensions
+temp <- list.files(path = "./NIFC Polygons/", pattern="*.shp") ## creating a vector that has all the files in the working directory with .xlsx extensions
 temp ## if W_FLs.shp is here remove
 temp <- temp[1:7]
 
-for(i in 1:length(temp)) assign(temp[i], terra::vect(temp[i])) ## loading in the shapefiles I want
+for(i in 1:length(temp)) {
+  path <- paste("./NIFC Polygons/", temp[i], sep = "") ## specifying the relative pathway for assign
+  assign(temp[i], terra::vect(path)) ## assigning the shapefiles
+} ## loading in the shapefiles I want
 
 EventPolygon2018.shp$year <- 2018
 length(unique(EventPolygon2018.shp$IncidentNa)) ## 20198
@@ -101,6 +119,8 @@ EventPolygon2018.shp <- EventPolygon2018.shp[!duplicated(EventPolygon2018.shp$In
 length(unique(EventPolygon2018.shp$IncidentNa)) ## 18146
 EventPolygon2018.shp <- EventPolygon2018.shp[!EventPolygon2018.shp$GISAcres < 1,]
 length(unique(EventPolygon2018.shp$IncidentNa)) ## 6777
+EventPolygon2018.shp <- EventPolygon2018.shp[EventPolygon2018.shp$DeleteThis == "No",]
+length(unique(EventPolygon2018.shp$IncidentNa)) ## 6746
 gc()
 
 EventPolygon2019.shp$year <- 2019
@@ -117,6 +137,8 @@ EventPolygon2019.shp <- EventPolygon2019.shp[!duplicated(EventPolygon2019.shp$In
 length(unique(EventPolygon2019.shp$IncidentNa)) ## 20717
 EventPolygon2019.shp <- EventPolygon2019.shp[!EventPolygon2019.shp$GISAcres < 1,]
 length(unique(EventPolygon2019.shp$IncidentNa)) ## 7342
+EventPolygon2019.shp <- EventPolygon2019.shp[EventPolygon2019.shp$DeleteThis == "No",]
+length(unique(EventPolygon2019.shp$IncidentNa)) ## 7334
 gc()
 
 EventPolygon2020.shp$year <- 2020
@@ -133,6 +155,8 @@ EventPolygon2020.shp <- EventPolygon2020.shp[!duplicated(EventPolygon2020.shp$In
 length(unique(EventPolygon2020.shp$IncidentNa)) ## 35882
 EventPolygon2020.shp <- EventPolygon2020.shp[!EventPolygon2020.shp$GISAcres < 1,]
 length(unique(EventPolygon2020.shp$IncidentNa)) ## 14459
+EventPolygon2020.shp <- EventPolygon2020.shp[EventPolygon2020.shp$DeleteThis == "No",]
+length(unique(EventPolygon2020.shp$IncidentNa)) ## 9517
 gc()
 
 EventPolygon2021.shp$year <- 2021
@@ -151,6 +175,8 @@ EventPolygon2021.shp <- EventPolygon2021.shp[!duplicated(EventPolygon2021.shp$In
 length(unique(EventPolygon2021.shp$IncidentNa)) ## 37317
 EventPolygon2021.shp <- EventPolygon2021.shp[!EventPolygon2021.shp$GISAcres < 1,]
 length(unique(EventPolygon2021.shp$IncidentNa)) ## 15803
+EventPolygon2021.shp <- EventPolygon2021.shp[EventPolygon2021.shp$DeleteThis == "No",]
+length(unique(EventPolygon2021.shp$IncidentNa)) ## 15385
 gc()
 
 EventPolygon2022.shp$year <- 2022
@@ -167,6 +193,8 @@ EventPolygon2022.shp <- EventPolygon2022.shp[!duplicated(EventPolygon2022.shp$In
 length(unique(EventPolygon2022.shp$IncidentNa)) ## 29943
 EventPolygon2022.shp <- EventPolygon2022.shp[!EventPolygon2022.shp$GISAcres < 1,]
 length(unique(EventPolygon2022.shp$IncidentNa)) ## 10175
+EventPolygon2022.shp <- EventPolygon2022.shp[EventPolygon2022.shp$DeleteThis == "No",]
+length(unique(EventPolygon2022.shp$IncidentNa)) ## 10068
 gc()
 
 EventPolygon2023.shp$year <- 2023
@@ -183,6 +211,8 @@ EventPolygon2023.shp <- EventPolygon2023.shp[!duplicated(EventPolygon2023.shp$In
 length(unique(EventPolygon2023.shp$IncidentNa)) ## 33869
 EventPolygon2023.shp <- EventPolygon2023.shp[!EventPolygon2023.shp$GISAcres < 1,]
 length(unique(EventPolygon2023.shp$IncidentNa)) ## 10836
+EventPolygon2023.shp <- EventPolygon2023.shp[EventPolygon2023.shp$DeleteThis == "No",]
+length(unique(EventPolygon2023.shp$IncidentNa)) ## 10760
 gc()
 
 EventPolygon2024.shp$year <- 2024
@@ -199,8 +229,11 @@ EventPolygon2024.shp <- EventPolygon2024.shp[!duplicated(EventPolygon2024.shp$In
 length(unique(EventPolygon2024.shp$IncidentNa)) ## 33643
 EventPolygon2024.shp <- EventPolygon2024.shp[!EventPolygon2024.shp$GISAcres < 1,]
 length(unique(EventPolygon2024.shp$IncidentNa)) ## 11368
+EventPolygon2024.shp <- EventPolygon2024.shp[EventPolygon2024.shp$DeleteThis == "No",]
+length(unique(EventPolygon2024.shp$IncidentNa)) ## 11341
 gc()
 
+## shortening the number of columns for each of the fire years
 EventPolygon2018.shp <- EventPolygon2018.shp[,c(colnames(values(EventPolygon2018.shp)) == "IncidentNa" | 
                                                   colnames(values(EventPolygon2018.shp)) == "GISAcres" |
                                                   colnames(values(EventPolygon2018.shp)) == "year")]
@@ -229,6 +262,8 @@ EventPolygon2024.shp <- EventPolygon2024.shp[,c(colnames(values(EventPolygon2024
                                                   colnames(values(EventPolygon2024.shp)) == "GISAcres" |
                                                   colnames(values(EventPolygon2024.shp)) == "year")]
 gc()
+
+## double checking each of the column names
 colnames(values(EventPolygon2018.shp))
 colnames(values(EventPolygon2019.shp))
 colnames(values(EventPolygon2020.shp))
@@ -237,13 +272,12 @@ colnames(values(EventPolygon2022.shp))
 colnames(values(EventPolygon2023.shp))
 colnames(values(EventPolygon2024.shp))
 
-head(values(EventPolygon2021.shp))
+head(values(EventPolygon2021.shp)) ## checking the start of the 2021 year to see how it looks
 gc()
 
 FirePoly <- rbind(EventPolygon2018.shp,EventPolygon2019.shp,EventPolygon2020.shp,EventPolygon2021.shp,EventPolygon2022.shp,EventPolygon2023.shp,EventPolygon2024.shp)
 rm(EventPolygon2018.shp);rm(EventPolygon2019.shp);rm(EventPolygon2020.shp);rm(EventPolygon2021.shp);rm(EventPolygon2022.shp);rm(EventPolygon2023.shp);rm(EventPolygon2024.shp)
-gc() ## fire poly has 2021 as of now
-
+gc() ## FirePoly now has all years in the study
 
 table(terra::is.valid(FirePoly)) ## checking the validity of geometery
 ## have several thousand invalid topologies
@@ -258,7 +292,7 @@ gc();rm(FirePoly);rm(WesternForests)
 WF_Fires <- terra::unique(WF_Fires)
 gc()
 
-vec <- values(WF_Fires) ## wow, down to < 40k fires
+vec <- values(WF_Fires) ## currently at around 18k fires
 colnames(vec)
 table(unique(vec$year))
 table(is.na(vec$GISAcres)) 
@@ -286,18 +320,17 @@ count_vertices <- function(v) {
 n_vertices <- count_vertices(WF_Fires)
 WF_Fires <- WF_Fires[n_vertices > 3,]
 table(WF_Fires$IncidentNa)
+vec <- values(WF_Fires) ## after removing Rx we are at 4k fires
 plot(WF_Fires)
 gc()
 
-getwd()
-# writeVector(WF_Fires,"WF_Fires.shp", overwrite = TRUE)
-
+writeVector(WF_Fires,"./NIFC Polygons/WF_Fires.shp", overwrite = TRUE)
+rm(WF_Fires);rm(vec);rm(i);rm(n_vertices);rm(path);rm(temp);rm(count_vertices)
 gc()
 
+
 #### Mid-way point for extracting the disturbance history for fires and fire lines ####
-library(sf)
-library(terra)
-library(exactextractr)
+
 W_Fires <- vect("D:/Outside Boundary/NIFC Polygons/WF_Fires.shp")
 # W_FLs <- vect("D:/Outside Boundary/NIFC Lines/WF_FLs.shp")
 W_dist <- rast("D:/Outside Boundary/LandFire TIFs/WF_dist.tif")
