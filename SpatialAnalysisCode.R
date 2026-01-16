@@ -324,6 +324,49 @@ vec <- values(WF_Fires) ## after removing Rx we are at 4k fires
 plot(WF_Fires)
 gc()
 
+df <- as.data.frame(WF_Fires)
+df <- df[!duplicated(df[c("IncidentNa", "GISAcres")]),]
+df <- df[order(df$IncidentNa,df$GISAcres,df$year),]
+
+
+# Convert to dataframe
+
+# Function to identify duplicates with similar names and same acres
+find_similar_duplicates <- function(df, name_col = "IncidentNa", 
+                                    acres_col = "GISAcres", 
+                                    max_dist = 3) {
+  keep <- rep(TRUE, nrow(df))
+  
+  for(i in 1:(nrow(df)-1)) {
+    if(!keep[i]) next
+    
+    for(j in (i+1):nrow(df)) {
+      if(!keep[j]) next
+      
+      # Check if acres are the same (or very close)
+      acres_match <- abs((df[i, acres_col] - df[j, acres_col])/df[i,acres_col]) < 1
+      
+      # Check if names are similar (Levenshtein distance)
+      name_dist <- stringdist(df[i, name_col], df[j, name_col], 
+                              method = "lv")
+      
+      if(acres_match && name_dist <= max_dist) {
+        keep[j] <- FALSE  # Mark later occurrence as duplicate
+      }
+    }
+  }
+  
+  return(keep)
+}
+
+# Apply the function
+df <- df[complete.cases(df),]
+keep_rows <- find_similar_duplicates(df)
+df_keep <- cbind(df,keep_rows)
+df_unique <- df[keep_rows, ]
+
+
+
 writeVector(WF_Fires,"./NIFC Polygons/WF_Fires.shp", overwrite = TRUE)
 rm(WF_Fires);rm(vec);rm(i);rm(n_vertices);rm(path);rm(temp);rm(count_vertices)
 gc()
@@ -331,34 +374,35 @@ gc()
 
 #### Mid-way point for extracting the disturbance history for fires and fire lines ####
 
-W_Fires <- vect("D:/Outside Boundary/NIFC Polygons/WF_Fires.shp")
-# W_FLs <- vect("D:/Outside Boundary/NIFC Lines/WF_FLs.shp")
-W_dist <- rast("D:/Outside Boundary/LandFire TIFs/WF_dist.tif")
+W_Fires <- vect("./NIFC Polygons/WF_Fires.shp")
+W_FLs <- vect("./NIFC Lines/WF_FLs.shp")
+W_dist <- rast("./LandFire TIFs/WF_dist.tif")
 gc()
 
 
 #### Extracting Treatment History for Fire Lines ####
 vec <- seq(2018,2024, by = 1) ## change to reflect data range
-i <- 4 ## specifying i because for loop was too memory intensive
-# Engaged_Lines <- NA
+i <- 1 ## specifying i because for loop was too memory intensive
+
+Engaged_Lines <- NA
 Treatment_Boundary <- NA
 Inside_Treatment <- NA
 
 # Pre-allocate list to store results
 Treatment_Boundary_list <- vector("list", length(vec))
 Inside_Treatment_list <- vector("list", length(vec))
-# Engaged_Lines_list <- vector("list", length(vec) * 2)
+Engaged_Lines_list <- vector("list", length(vec) * 2)
 
 # Pre-filter data once
 W_Fires_filtered <- W_Fires[W_Fires$year %in% vec, ]
-# W_FLs_filtered <- W_FLs[W_FLs$year %in% vec, ]
+W_FLs_filtered <- W_FLs[W_FLs$year %in% vec, ]
 
-# for(i in seq_along(vec)){
+# for(i in seq_along(vec)){ ## if you are using a computer with > 64 GB of RAM then this for loop will probably work
 year_i <- vec[i]
 
 # Filter for current year
 W_Fires_year <- W_Fires_filtered[W_Fires_filtered$year == year_i, ]
-# W_FLs_year <- W_FLs_filtered[W_FLs_filtered$year == year_i, ]
+W_FLs_year <- W_FLs_filtered[W_FLs_filtered$year == year_i, ]
 
 # Buffer operations
 W_Fires_add60 <- buffer(W_Fires_year, 60) 
@@ -369,9 +413,9 @@ W_Fires_EH <- erase(W_Fires_add60, W_Fires_minus60)
 unique_names <- unique(W_Fires_EH$IncidentNa)
 geom_df <- geom(W_Fires_EH) ## Needed for the 2021 oddness
 attr_df <- as.data.frame(W_Fires_EH)
-sf_object <- create_polygon_sf(geom_df, attr_df, crs = crs(W_Fires_EH))
-# W_Fires_EH <- tidyterra::as_sf(W_Fires_EH) ## need to make into sf objects first
-W_Fires_EH <- sf::as_Spatial(sf_object$geometry) ## replace w/ sf_object if given trouble
+# sf_object <- create_polygon_sf(geom_df, attr_df, crs = crs(W_Fires_EH))
+W_Fires_EH <- tidyterra::as_sf(W_Fires_EH) ## need to make into sf objects first
+W_Fires_EH <- sf::as_Spatial(W_Fires_EH$geometry) ## replace w/ sf_object if given trouble
 tmp_list <- exact_extract(W_dist, W_Fires_EH, include_cell = TRUE, progress = TRUE)
 
 # Combine list into single dataframe with ID column
@@ -410,43 +454,43 @@ tmp$year <- year_i
 Inside_Treatment_list[[i]] <- tmp
 gc()
 
-# # Intersect operations
-# W_Fires_minus60 <- vect(W_Fires_minus60)
-# W_Fires_EH <- vect(W_Fires_EH)
-# W_FLs_EH <- intersect(W_FLs_year, W_Fires_EH)
-# W_FLs_EF <- intersect(W_FLs_year, W_Fires_minus60)
-# 
-# # make lines into small polygons
-# W_FLs_EH <- buffer(W_FLs_EH, 1)
-# W_FLs_EF <- buffer(W_FLs_EF, 1)
-# 
-# # Extract with xy coordinates for fire lines
-# # exactextractr returns coverage fraction by default, use include_xy for coordinates
-# W_FLs_EH <- tidyterra::as_sf(W_FLs_EH) ## need to make into sf objects first
-# W_FLs_EH <- sf::as_Spatial(W_FLs_EH$geometry)
-# extracted_FLs_EH_list <- exact_extract(W_dist, W_FLs_EH, include_xy = TRUE, progress = TRUE)
-# # extracted_FLs_EH_list <- terra::extract(W_dist, W_FLs_EH, xy = TRUE)
-# 
-# W_FLs_EF <- tidyterra::as_sf(W_FLs_EF) ## need to make into sf objects first
-# W_FLs_EF <- sf::as_Spatial(W_FLs_EF$geometry)
-# extracted_FLs_EF_list <- exact_extract(W_dist, W_FLs_EF, include_xy = TRUE, progress = TRUE)
-# # extracted_FLs_EF_list <- terra::extract(W_dist, W_FLs_EF, xy = TRUE)
-# 
-# # Combine into dataframes
-# extracted_FLs_EH <- do.call(rbind, extracted_FLs_EH_list)
-# extracted_FLs_EF <- do.call(rbind, extracted_FLs_EF_list)
-# 
-# # Get unique values
-# EF <- unique(extracted_FLs_EF)
-# EH <- unique(extracted_FLs_EH)
-# 
-# EF$Stat <- "EF"
-# EF$year <- year_i
-# EH$Stat <- "EH"
-# EH$year <- year_i
-# 
-# Engaged_Lines_list[[2*i - 1]] <- EF
-# Engaged_Lines_list[[2*i]] <- EH
+# Intersect operations
+W_Fires_minus60 <- vect(W_Fires_minus60)
+W_Fires_EH <- vect(W_Fires_EH)
+W_FLs_EH <- intersect(W_FLs_year, W_Fires_EH)
+W_FLs_EF <- intersect(W_FLs_year, W_Fires_minus60)
+
+# make lines into small polygons
+W_FLs_EH <- buffer(W_FLs_EH, 1)
+W_FLs_EF <- buffer(W_FLs_EF, 1)
+
+# Extract with xy coordinates for fire lines
+# exactextractr returns coverage fraction by default, use include_xy for coordinates
+W_FLs_EH <- tidyterra::as_sf(W_FLs_EH) ## need to make into sf objects first
+W_FLs_EH <- sf::as_Spatial(W_FLs_EH$geometry)
+extracted_FLs_EH_list <- exact_extract(W_dist, W_FLs_EH, include_xy = TRUE, progress = TRUE)
+# extracted_FLs_EH_list <- terra::extract(W_dist, W_FLs_EH, xy = TRUE)
+
+W_FLs_EF <- tidyterra::as_sf(W_FLs_EF) ## need to make into sf objects first
+W_FLs_EF <- sf::as_Spatial(W_FLs_EF$geometry)
+extracted_FLs_EF_list <- exact_extract(W_dist, W_FLs_EF, include_xy = TRUE, progress = TRUE)
+# extracted_FLs_EF_list <- terra::extract(W_dist, W_FLs_EF, xy = TRUE)
+
+# Combine into dataframes
+extracted_FLs_EH <- do.call(rbind, extracted_FLs_EH_list)
+extracted_FLs_EF <- do.call(rbind, extracted_FLs_EF_list)
+
+# Get unique values
+EF <- unique(extracted_FLs_EF)
+EH <- unique(extracted_FLs_EH)
+
+EF$Stat <- "EF"
+EF$year <- year_i
+EH$Stat <- "EH"
+EH$year <- year_i
+
+Engaged_Lines_list[[2*i - 1]] <- EF
+Engaged_Lines_list[[2*i]] <- EH
 
 print(year_i)
 
