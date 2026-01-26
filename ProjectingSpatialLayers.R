@@ -183,6 +183,12 @@ writeVector(EventPolygon2018.shp, "EventPolygon2018.shp", overwrite = TRUE)
 rm(EventPolygon2018.shp);rm(EventPolygon2019.shp);rm(EventPolygon2020.shp);rm(EventPolygon2022.shp);rm(EventPolygon2023.shp);rm(EventPolygon2024.shp)
 gc()
 
+## MTBS data for improved naming convention and accuracy
+setwd("D:/Outside Boundary/mtbs_perimeter_data")
+mtbs_perims <- vect("mtbs_perims_DD.shp")
+mtbs_perims <- terra::project(mtbs_perims, WesternStates)
+writeVector(mtbs_perims, "mtbs_perims.shp", overwrite = TRUE)
+
 
 #### Western Forest Layers ####
 # WesternForests <- rast("D:/Outside Boundary/Annual_NLCD_LndCov_2018/WesternUSA_Forest_2018.tif")

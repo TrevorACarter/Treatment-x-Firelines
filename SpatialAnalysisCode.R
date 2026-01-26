@@ -95,189 +95,23 @@ gc()
 
 writeVector(WF_FLs, "./NIFC Lines/WF_FLs.shp", overwrite = TRUE)
 
-#### Adding Fire Polygon Data from NIFC (2018-2024) ####
-temp <- list.files(path = "./NIFC Polygons/", pattern="*.shp") ## creating a vector that has all the files in the working directory with .xlsx extensions
-temp ## if W_FLs.shp is here remove
-temp <- temp[1:7]
-
-for(i in 1:length(temp)) {
-  path <- paste("./NIFC Polygons/", temp[i], sep = "") ## specifying the relative pathway for assign
-  assign(temp[i], terra::vect(path)) ## assigning the shapefiles
-} ## loading in the shapefiles I want
-
-EventPolygon2018.shp$year <- 2018
-length(unique(EventPolygon2018.shp$IncidentNa)) ## 20198
-EventPolygon2018.shp$IncidentNa <- tolower(gsub("[[:punct:][:space:]]", "", EventPolygon2018.shp$IncidentNa))
-EventPolygon2018.shp <- EventPolygon2018.shp[!grepl("rx",EventPolygon2018.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2018.shp <- EventPolygon2018.shp[!grepl("pileburn",EventPolygon2018.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2018.shp <- EventPolygon2018.shp[!grepl("falsealarm",EventPolygon2018.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2018.shp <- EventPolygon2018.shp[!grepl("baer",EventPolygon2018.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2018.shp <- EventPolygon2018.shp[!grepl("test",EventPolygon2018.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2018.shp <- EventPolygon2018.shp[!grepl("delete",EventPolygon2018.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2018.shp <- EventPolygon2018.shp[order(EventPolygon2018.shp$GISAcres, decreasing = TRUE),] ## sorting by size
-EventPolygon2018.shp <- EventPolygon2018.shp[!duplicated(EventPolygon2018.shp$IncidentNa),] ## keeping the largest fire per each name (there are errors in here)
-length(unique(EventPolygon2018.shp$IncidentNa)) ## 18146
-EventPolygon2018.shp <- EventPolygon2018.shp[!EventPolygon2018.shp$GISAcres < 1,]
-length(unique(EventPolygon2018.shp$IncidentNa)) ## 6777
-EventPolygon2018.shp <- EventPolygon2018.shp[EventPolygon2018.shp$DeleteThis == "No",]
-length(unique(EventPolygon2018.shp$IncidentNa)) ## 6746
+#### Adding Fire Polygon data from MTBS ####
+FirePoly <- vect("./mtbs_perimeter_data/mtbs_perims.shp")
+FirePoly$Ig_Date <- as.numeric(substr(FirePoly$Ig_Date,1,4)) ## changing the date column to only contain the year
+FirePoly <- FirePoly[FirePoly$Ig_Date >= 2018,] ## subsetting only 2018 - 2024
+FirePoly$Incid_Name <- tolower(FirePoly$Incid_Name) ## making the incident names lowercase to remove potential duplicates
+FirePoly <- FirePoly[order(FirePoly$BurnBndAc, decreasing = TRUE),] ## sorting by size
+FirePoly <- FirePoly[!duplicated(paste(FirePoly$Incid_Name,FirePoly$Ig_Date,FirePoly$BurnBndAc)),] ## removing duplicates
+length(unique(paste(FirePoly$Incid_Name,FirePoly$Ig_Date,FirePoly$BurnBndAc))) ## 5918 unique events
 gc()
 
-EventPolygon2019.shp$year <- 2019
-length(unique(EventPolygon2019.shp$IncidentNa)) ## 23722
-EventPolygon2019.shp$IncidentNa <- tolower(gsub("[[:punct:][:space:]]", "", EventPolygon2019.shp$IncidentNa))
-EventPolygon2019.shp <- EventPolygon2019.shp[!grepl("rx",EventPolygon2019.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2019.shp <- EventPolygon2019.shp[!grepl("pileburn",EventPolygon2019.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2019.shp <- EventPolygon2019.shp[!grepl("falsealarm",EventPolygon2019.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2019.shp <- EventPolygon2019.shp[!grepl("baer",EventPolygon2019.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2019.shp <- EventPolygon2019.shp[!grepl("test",EventPolygon2019.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2019.shp <- EventPolygon2019.shp[!grepl("delete",EventPolygon2019.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2019.shp <- EventPolygon2019.shp[order(EventPolygon2019.shp$GISAcres, decreasing = TRUE),] ## sorting by size
-EventPolygon2019.shp <- EventPolygon2019.shp[!duplicated(EventPolygon2019.shp$IncidentNa),] ## keeping the largest fire per each name (there are errors in here)
-length(unique(EventPolygon2019.shp$IncidentNa)) ## 20717
-EventPolygon2019.shp <- EventPolygon2019.shp[!EventPolygon2019.shp$GISAcres < 1,]
-length(unique(EventPolygon2019.shp$IncidentNa)) ## 7342
-EventPolygon2019.shp <- EventPolygon2019.shp[EventPolygon2019.shp$DeleteThis == "No",]
-length(unique(EventPolygon2019.shp$IncidentNa)) ## 7334
-gc()
-
-EventPolygon2020.shp$year <- 2020
-length(unique(EventPolygon2020.shp$IncidentNa)) ## 40386
-EventPolygon2020.shp$IncidentNa <- tolower(gsub("[[:punct:][:space:]]", "", EventPolygon2020.shp$IncidentNa))
-EventPolygon2020.shp <- EventPolygon2020.shp[!grepl("rx",EventPolygon2020.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2020.shp <- EventPolygon2020.shp[!grepl("pileburn",EventPolygon2020.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2020.shp <- EventPolygon2020.shp[!grepl("falsealarm",EventPolygon2020.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2020.shp <- EventPolygon2020.shp[!grepl("baer",EventPolygon2020.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2020.shp <- EventPolygon2020.shp[!grepl("test",EventPolygon2020.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2020.shp <- EventPolygon2020.shp[!grepl("delete",EventPolygon2020.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2020.shp <- EventPolygon2020.shp[order(EventPolygon2020.shp$GISAcres, decreasing = TRUE),] ## sorting by size
-EventPolygon2020.shp <- EventPolygon2020.shp[!duplicated(EventPolygon2020.shp$IncidentNa),] ## keeping the largest fire per each name (there are errors in here)
-length(unique(EventPolygon2020.shp$IncidentNa)) ## 35882
-EventPolygon2020.shp <- EventPolygon2020.shp[!EventPolygon2020.shp$GISAcres < 1,]
-length(unique(EventPolygon2020.shp$IncidentNa)) ## 14459
-EventPolygon2020.shp <- EventPolygon2020.shp[EventPolygon2020.shp$DeleteThis == "No",]
-length(unique(EventPolygon2020.shp$IncidentNa)) ## 9517
-gc()
-
-EventPolygon2021.shp$year <- 2021
-length(unique(EventPolygon2021.shp$IncidentNa)) ## 41647
-EventPolygon2021.shp <- EventPolygon2021.shp[EventPolygon2021.shp$IncidentNa != "InTerNaTiOnAl fAlLs WaTeR tOwEr \xed\xa0\xbd\xed\xb7\xbc",] ## this name is causing alot of trouble, so I removed it
-EventPolygon2021.shp <- EventPolygon2021.shp[EventPolygon2021.shp$IncidentNa != "fire \xed\xa0\xbd\xed\xb4\xa5 \xed\xa0\xbd\xed\xb3\x9b \xed\xa0\xbd\xed\xb1\xa8‍\xed\xa0\xbd\xed\xba\x92",] ## this name is causing alot of trouble, so I removed it
-EventPolygon2021.shp$IncidentNa <- tolower(gsub("[[:punct:][:space:]]", "", EventPolygon2021.shp$IncidentNa))
-EventPolygon2021.shp <- EventPolygon2021.shp[!grepl("rx",EventPolygon2021.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2021.shp <- EventPolygon2021.shp[!grepl("pileburn",EventPolygon2021.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2021.shp <- EventPolygon2021.shp[!grepl("falsealarm",EventPolygon2021.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2021.shp <- EventPolygon2021.shp[!grepl("baer",EventPolygon2021.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2021.shp <- EventPolygon2021.shp[!grepl("test",EventPolygon2021.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2021.shp <- EventPolygon2021.shp[!grepl("delete",EventPolygon2021.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2021.shp <- EventPolygon2021.shp[order(EventPolygon2021.shp$GISAcres, decreasing = TRUE),] ## sorting by size
-EventPolygon2021.shp <- EventPolygon2021.shp[!duplicated(EventPolygon2021.shp$IncidentNa),] ## keeping the largest fire per each name (there are errors in here)
-length(unique(EventPolygon2021.shp$IncidentNa)) ## 37317
-EventPolygon2021.shp <- EventPolygon2021.shp[!EventPolygon2021.shp$GISAcres < 1,]
-length(unique(EventPolygon2021.shp$IncidentNa)) ## 15803
-EventPolygon2021.shp <- EventPolygon2021.shp[EventPolygon2021.shp$DeleteThis == "No",]
-length(unique(EventPolygon2021.shp$IncidentNa)) ## 15385
-gc()
-
-EventPolygon2022.shp$year <- 2022
-length(unique(EventPolygon2022.shp$IncidentNa)) ## 33027
-EventPolygon2022.shp$IncidentNa <- tolower(gsub("[[:punct:][:space:]]", "", EventPolygon2022.shp$IncidentNa))
-EventPolygon2022.shp <- EventPolygon2022.shp[!grepl("rx",EventPolygon2022.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2022.shp <- EventPolygon2022.shp[!grepl("pileburn",EventPolygon2022.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2022.shp <- EventPolygon2022.shp[!grepl("falsealarm",EventPolygon2022.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2022.shp <- EventPolygon2022.shp[!grepl("baer",EventPolygon2022.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2022.shp <- EventPolygon2022.shp[!grepl("test",EventPolygon2022.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2022.shp <- EventPolygon2022.shp[!grepl("delete",EventPolygon2022.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2022.shp <- EventPolygon2022.shp[order(EventPolygon2022.shp$GISAcres, decreasing = TRUE),] ## sorting by size
-EventPolygon2022.shp <- EventPolygon2022.shp[!duplicated(EventPolygon2022.shp$IncidentNa),] ## keeping the largest fire per each name (there are errors in here)
-length(unique(EventPolygon2022.shp$IncidentNa)) ## 29943
-EventPolygon2022.shp <- EventPolygon2022.shp[!EventPolygon2022.shp$GISAcres < 1,]
-length(unique(EventPolygon2022.shp$IncidentNa)) ## 10175
-EventPolygon2022.shp <- EventPolygon2022.shp[EventPolygon2022.shp$DeleteThis == "No",]
-length(unique(EventPolygon2022.shp$IncidentNa)) ## 10068
-gc()
-
-EventPolygon2023.shp$year <- 2023
-length(unique(EventPolygon2023.shp$IncidentNa)) ## 40903
-EventPolygon2023.shp$IncidentNa <- tolower(gsub("[[:punct:][:space:]]", "", EventPolygon2023.shp$IncidentNa))
-EventPolygon2023.shp <- EventPolygon2023.shp[!grepl("rx",EventPolygon2023.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2023.shp <- EventPolygon2023.shp[!grepl("pileburn",EventPolygon2023.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2023.shp <- EventPolygon2023.shp[!grepl("falsealarm",EventPolygon2023.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2023.shp <- EventPolygon2023.shp[!grepl("baer",EventPolygon2023.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2023.shp <- EventPolygon2023.shp[!grepl("test",EventPolygon2023.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2023.shp <- EventPolygon2023.shp[!grepl("delete",EventPolygon2023.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2023.shp <- EventPolygon2023.shp[order(EventPolygon2023.shp$GISAcres, decreasing = TRUE),] ## sorting by size
-EventPolygon2023.shp <- EventPolygon2023.shp[!duplicated(EventPolygon2023.shp$IncidentNa),] ## keeping the largest fire per each name (there are errors in here)
-length(unique(EventPolygon2023.shp$IncidentNa)) ## 33869
-EventPolygon2023.shp <- EventPolygon2023.shp[!EventPolygon2023.shp$GISAcres < 1,]
-length(unique(EventPolygon2023.shp$IncidentNa)) ## 10836
-EventPolygon2023.shp <- EventPolygon2023.shp[EventPolygon2023.shp$DeleteThis == "No",]
-length(unique(EventPolygon2023.shp$IncidentNa)) ## 10760
-gc()
-
-EventPolygon2024.shp$year <- 2024
-length(unique(EventPolygon2024.shp$IncidentNa)) ## 42394
-EventPolygon2024.shp$IncidentNa <- tolower(gsub("[[:punct:][:space:]]", "", EventPolygon2024.shp$IncidentNa))
-EventPolygon2024.shp <- EventPolygon2024.shp[!grepl("rx",EventPolygon2024.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2024.shp <- EventPolygon2024.shp[!grepl("pileburn",EventPolygon2024.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2024.shp <- EventPolygon2024.shp[!grepl("falsealarm",EventPolygon2024.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2024.shp <- EventPolygon2024.shp[!grepl("baer",EventPolygon2024.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2024.shp <- EventPolygon2024.shp[!grepl("test",EventPolygon2024.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2024.shp <- EventPolygon2024.shp[!grepl("delete",EventPolygon2024.shp$IncidentNa, ignore.case = TRUE),]
-EventPolygon2024.shp <- EventPolygon2024.shp[order(EventPolygon2024.shp$GISAcres, decreasing = TRUE),] ## sorting by size
-EventPolygon2024.shp <- EventPolygon2024.shp[!duplicated(EventPolygon2024.shp$IncidentNa),] ## keeping the largest fire per each name (there are errors in here)
-length(unique(EventPolygon2024.shp$IncidentNa)) ## 33643
-EventPolygon2024.shp <- EventPolygon2024.shp[!EventPolygon2024.shp$GISAcres < 1,]
-length(unique(EventPolygon2024.shp$IncidentNa)) ## 11368
-EventPolygon2024.shp <- EventPolygon2024.shp[EventPolygon2024.shp$DeleteThis == "No",]
-length(unique(EventPolygon2024.shp$IncidentNa)) ## 11341
-gc()
-
-## shortening the number of columns for each of the fire years
-EventPolygon2018.shp <- EventPolygon2018.shp[,c(colnames(values(EventPolygon2018.shp)) == "IncidentNa" | 
-                                                  colnames(values(EventPolygon2018.shp)) == "GISAcres" |
-                                                  colnames(values(EventPolygon2018.shp)) == "year")]
-gc()
-EventPolygon2019.shp <- EventPolygon2019.shp[,c(colnames(values(EventPolygon2019.shp)) == "IncidentNa" | 
-                                                     colnames(values(EventPolygon2019.shp)) == "GISAcres" |
-                                                     colnames(values(EventPolygon2019.shp)) == "year")]
-gc()
-EventPolygon2020.shp <- EventPolygon2020.shp[,c(colnames(values(EventPolygon2020.shp)) == "IncidentNa" | 
-                                                  colnames(values(EventPolygon2020.shp)) == "GISAcres" |
-                                                  colnames(values(EventPolygon2020.shp)) == "year")]
-gc()
-EventPolygon2021.shp <- EventPolygon2021.shp[,c(colnames(values(EventPolygon2021.shp)) == "IncidentNa" | 
-                                                  colnames(values(EventPolygon2021.shp)) == "GISAcres" |
-                                                  colnames(values(EventPolygon2021.shp)) == "year")]
-gc()
-EventPolygon2022.shp <- EventPolygon2022.shp[,c(colnames(values(EventPolygon2022.shp)) == "IncidentNa" | 
-                                                  colnames(values(EventPolygon2022.shp)) == "GISAcres" |
-                                                  colnames(values(EventPolygon2022.shp)) == "year")]
-gc()
-EventPolygon2023.shp <- EventPolygon2023.shp[,c(colnames(values(EventPolygon2023.shp)) == "IncidentNa" | 
-                                                  colnames(values(EventPolygon2023.shp)) == "GISAcres" |
-                                                  colnames(values(EventPolygon2023.shp)) == "year")]
-gc()
-EventPolygon2024.shp <- EventPolygon2024.shp[,c(colnames(values(EventPolygon2024.shp)) == "IncidentNa" | 
-                                                  colnames(values(EventPolygon2024.shp)) == "GISAcres" |
-                                                  colnames(values(EventPolygon2024.shp)) == "year")]
+FirePoly <- FirePoly[,c(colnames(values(FirePoly)) == "Incid_Name" | 
+                          colnames(values(FirePoly)) == "BurnBndAc" |
+                          colnames(values(FirePoly)) == "Ig_Date")]
 gc()
 
 ## double checking each of the column names
-colnames(values(EventPolygon2018.shp))
-colnames(values(EventPolygon2019.shp))
-colnames(values(EventPolygon2020.shp))
-colnames(values(EventPolygon2021.shp))
-colnames(values(EventPolygon2022.shp))
-colnames(values(EventPolygon2023.shp))
-colnames(values(EventPolygon2024.shp))
-
-head(values(EventPolygon2021.shp)) ## checking the start of the 2021 year to see how it looks
-gc()
-
-FirePoly <- rbind(EventPolygon2018.shp,EventPolygon2019.shp,EventPolygon2020.shp,EventPolygon2021.shp,EventPolygon2022.shp,EventPolygon2023.shp,EventPolygon2024.shp)
-rm(EventPolygon2018.shp);rm(EventPolygon2019.shp);rm(EventPolygon2020.shp);rm(EventPolygon2021.shp);rm(EventPolygon2022.shp);rm(EventPolygon2023.shp);rm(EventPolygon2024.shp)
-gc() ## FirePoly now has all years in the study
+colnames(values(FirePoly))
 
 table(terra::is.valid(FirePoly)) ## checking the validity of geometery
 ## have several thousand invalid topologies
@@ -292,10 +126,10 @@ gc();rm(FirePoly);rm(WesternForests)
 WF_Fires <- terra::unique(WF_Fires)
 gc()
 
-vec <- values(WF_Fires) ## currently at around 18k fires
+vec <- values(WF_Fires) ## currently at around 1k fires
 colnames(vec)
-table(unique(vec$year))
-table(is.na(vec$GISAcres)) 
+table(vec$Ig_Date) ## years represented
+table(is.na(vec$BurnBndAc)) ## no NA values
 
 plot(WF_Fires)
 
@@ -319,58 +153,14 @@ count_vertices <- function(v) {
 # Remove triangles (3 vertices)
 n_vertices <- count_vertices(WF_Fires)
 WF_Fires <- WF_Fires[n_vertices > 3,]
-table(WF_Fires$IncidentNa)
-vec <- values(WF_Fires) ## after removing Rx we are at 4k fires
+table(WF_Fires$Incid_Name)
+vec <- values(WF_Fires) ## after removing Rx we are at 1k fires
 plot(WF_Fires)
 gc()
 
-df <- as.data.frame(WF_Fires)
-df <- df[!duplicated(df[c("IncidentNa", "GISAcres")]),]
-df <- df[order(df$IncidentNa,df$GISAcres,df$year),]
-
-
-# Convert to dataframe
-
-# Function to identify duplicates with similar names and same acres
-find_similar_duplicates <- function(df, name_col = "IncidentNa", 
-                                    acres_col = "GISAcres", 
-                                    max_dist = 3) {
-  keep <- rep(TRUE, nrow(df))
-  
-  for(i in 1:(nrow(df)-1)) {
-    if(!keep[i]) next
-    
-    for(j in (i+1):nrow(df)) {
-      if(!keep[j]) next
-      
-      # Check if acres are the same (or very close)
-      acres_match <- abs((df[i, acres_col] - df[j, acres_col])/df[i,acres_col]) < 1
-      
-      # Check if names are similar (Levenshtein distance)
-      name_dist <- stringdist(df[i, name_col], df[j, name_col], 
-                              method = "lv")
-      
-      if(acres_match && name_dist <= max_dist) {
-        keep[j] <- FALSE  # Mark later occurrence as duplicate
-      }
-    }
-  }
-  
-  return(keep)
-}
-
-# Apply the function
-df <- df[complete.cases(df),]
-keep_rows <- find_similar_duplicates(df)
-df_keep <- cbind(df,keep_rows)
-df_unique <- df[keep_rows, ]
-
-
-
-writeVector(WF_Fires,"./NIFC Polygons/WF_Fires.shp", overwrite = TRUE)
-rm(WF_Fires);rm(vec);rm(i);rm(n_vertices);rm(path);rm(temp);rm(count_vertices)
+writeVector(WF_Fires,"./mtbs_perimeter_data/WF_Fires.shp", overwrite = TRUE)
+rm(WF_Fires);rm(vec);rm(i);rm(n_vertices);rm(count_vertices)
 gc()
-
 
 #### Mid-way point for extracting the disturbance history for fires and fire lines ####
 
