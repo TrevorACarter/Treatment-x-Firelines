@@ -164,7 +164,7 @@ gc()
 
 #### Mid-way point for extracting the disturbance history for fires and fire lines ####
 
-W_Fires <- vect("./NIFC Polygons/WF_Fires.shp")
+W_Fires <- vect("./mtbs_perimeter_data/WF_Fires.shp")
 W_FLs <- vect("./NIFC Lines/WF_FLs.shp")
 W_dist <- rast("./LandFire TIFs/WF_dist.tif")
 gc()
@@ -172,7 +172,8 @@ gc()
 
 #### Extracting Treatment History for Fire Lines ####
 vec <- seq(2018,2024, by = 1) ## change to reflect data range
-i <- 1 ## specifying i because for loop was too memory intensive
+i <- 6 ## specifying i because for loop was too memory intensive
+## a bit clunky but necessary for memory
 
 Engaged_Lines <- NA
 Treatment_Boundary <- NA
@@ -184,14 +185,14 @@ Inside_Treatment_list <- vector("list", length(vec))
 Engaged_Lines_list <- vector("list", length(vec) * 2)
 
 # Pre-filter data once
-W_Fires_filtered <- W_Fires[W_Fires$year %in% vec, ]
+W_Fires_filtered <- W_Fires[W_Fires$Ig_Date %in% vec, ]
 W_FLs_filtered <- W_FLs[W_FLs$year %in% vec, ]
 
 # for(i in seq_along(vec)){ ## if you are using a computer with > 64 GB of RAM then this for loop will probably work
 year_i <- vec[i]
 
 # Filter for current year
-W_Fires_year <- W_Fires_filtered[W_Fires_filtered$year == year_i, ]
+W_Fires_year <- W_Fires_filtered[W_Fires_filtered$Ig_Date == year_i, ]
 W_FLs_year <- W_FLs_filtered[W_FLs_filtered$year == year_i, ]
 
 # Buffer operations
@@ -200,9 +201,9 @@ W_Fires_minus60 <- buffer(W_Fires_year, -60)
 W_Fires_EH <- erase(W_Fires_add60, W_Fires_minus60)
 
 # Extract using exactextractr - returns a list of dataframes
-unique_names <- unique(W_Fires_EH$IncidentNa)
-geom_df <- geom(W_Fires_EH) ## Needed for the 2021 oddness
-attr_df <- as.data.frame(W_Fires_EH)
+unique_names <- unique(W_Fires_EH$Incid_Name)
+# geom_df <- geom(W_Fires_EH) ## Maybe no longer needed for the 2021 oddness?
+# attr_df <- as.data.frame(W_Fires_EH)
 # sf_object <- create_polygon_sf(geom_df, attr_df, crs = crs(W_Fires_EH))
 W_Fires_EH <- tidyterra::as_sf(W_Fires_EH) ## need to make into sf objects first
 W_Fires_EH <- sf::as_Spatial(W_Fires_EH$geometry) ## replace w/ sf_object if given trouble
@@ -223,7 +224,7 @@ Treatment_Boundary_list[[i]] <- tmp
 gc()
 
 # Extract using exactextractr - returns a list of dataframes
-unique_names <- unique(W_Fires_minus60$IncidentNa)
+unique_names <- unique(W_Fires_minus60$Incid_Name)
 W_Fires_minus60 <- tidyterra::as_sf(W_Fires_minus60) ## need to make into sf objects first
 ID_match <- sf::st_is_empty(W_Fires_minus60$geometry)
 W_Fires_minus60 <- W_Fires_minus60[!sf::st_is_empty(W_Fires_minus60$geometry),]
@@ -288,7 +289,7 @@ gc()
 
 Treatment_Boundary <- do.call(rbind, Treatment_Boundary_list);gc()
 Inside_Treatment <- do.call(rbind, Inside_Treatment_list);gc()
-# Engaged_Lines <- do.call(rbind, Engaged_Lines_list);gc()
+Engaged_Lines <- do.call(rbind, Engaged_Lines_list);gc()
 
 table(Treatment_Boundary$year)
 length(unique(Treatment_Boundary$fire.names))
@@ -307,12 +308,12 @@ rm(Inside_Treatment_list);rm(Treatment_Boundary_list);rm(W_Fires_filtered);rm(W_
 rm(W_FLs_filtered);rm(W_FLs_year);rm(ID_match);rm(unique_ID)
 gc()
 
-setwd("D:/Outside Boundary")
-# write.csv(Engaged_Lines, "Engaged_Lines2021.csv")
-# gc()
-write.csv(Treatment_Boundary, "Treatment_Boundary2021.csv")
+
+write.csv(Engaged_Lines, "Engaged_Lines2023.csv")
 gc()
-write.csv(Inside_Treatment, "Inside_Treatment2021.csv")
+write.csv(Treatment_Boundary, "Treatment_Boundary2023.csv")
+gc()
+write.csv(Inside_Treatment, "Inside_Treatment2023.csv")
 gc()
 
 
