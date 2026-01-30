@@ -172,7 +172,7 @@ gc()
 
 #### Extracting Treatment History for Fire Lines ####
 vec <- seq(2018,2024, by = 1) ## change to reflect data range
-i <- 6 ## specifying i because for loop was too memory intensive
+i <- 7 ## specifying i because for loop was too memory intensive
 ## a bit clunky but necessary for memory
 
 Engaged_Lines <- NA
@@ -309,11 +309,11 @@ rm(W_FLs_filtered);rm(W_FLs_year);rm(ID_match);rm(unique_ID)
 gc()
 
 
-write.csv(Engaged_Lines, "Engaged_Lines2023.csv")
+write.csv(Engaged_Lines, "Engaged_Lines2024.csv")
 gc()
-write.csv(Treatment_Boundary, "Treatment_Boundary2023.csv")
+write.csv(Treatment_Boundary, "Treatment_Boundary2024.csv")
 gc()
-write.csv(Inside_Treatment, "Inside_Treatment2023.csv")
+write.csv(Inside_Treatment, "Inside_Treatment2024.csv")
 gc()
 
 
