@@ -2,7 +2,10 @@
 library(terra)
 library(sf)
 library(exactextractr)
-
+library(dplyr)
+library(caret)
+library(randomForest)
+library(pROC)
 setwd("D:/Outside Boundary")
 
 
@@ -316,10 +319,9 @@ gc()
 write.csv(Inside_Treatment, "Inside_Treatment2024.csv")
 gc()
 
-
+#### Start Here Post-Extractions ####
 #### Engaged Lines Treatment History Data Cleaning ####
-D_csv <- read.csv("D:/Outside Boundary/LandFire csvs/LF_total_dist.csv")
-setwd("D:/Outside Boundary")
+D_csv <- read.csv("./LandFire csvs/LF_total_dist.csv")
 
 EL18 <- read.csv("Engaged_Lines2018.csv")
 head(EL18)
@@ -380,11 +382,11 @@ Engaged_Lines$history <- apply(Engaged_Lines, 1, function(row) {
 table(Engaged_Lines$history)
 table(Engaged_Lines$stat)
 # EF      EH 
-# 1712538 5254178 
-nrow(Engaged_Lines[Engaged_Lines$stat == "EF",])/nrow(Engaged_Lines[Engaged_Lines$stat == "EH",])
+# 2211528 3688526 
+nrow(Engaged_Lines[Engaged_Lines$stat == "EF",])/nrow(Engaged_Lines)
 ## 0.3259 (proportion of failed lines)
 
-length(unique(Engaged_Lines$history)) ## 2996 unique disturbance histories
+length(unique(Engaged_Lines$history)) ## 2393 unique disturbance histories
 Engaged_Lines$trt <- ifelse(grepl("Thinning", Engaged_Lines$history) & grepl("Prescribed", Engaged_Lines$history),
                       "Thinning and Prescribed",
                       ifelse(grepl("Thinning", Engaged_Lines$history) & !grepl("Prescribed", Engaged_Lines$history),
@@ -424,8 +426,7 @@ write.csv(Engaged_Lines,"Engaged_Lines_DisturbanceHistory.csv")
 
 
 #### Fire Perimeter Data ####
-D_csv <- read.csv("D:/Outside Boundary/LandFire csvs/LF_total_dist.csv")
-setwd("D:/Outside Boundary")
+D_csv <- read.csv("./LandFire csvs/LF_total_dist.csv")
 
 TB18 <- read.csv("Treatment_Boundary2018.csv")
 TB19 <- read.csv("Treatment_Boundary2019.csv")
@@ -483,8 +484,8 @@ trt$history <- apply(trt, 1, function(row) {
 
 gc()
 
-length(unique(trt$history)) ## 5952 unique disturbance histories (609 in 2018)
-length(unique(trt$fire.name)) ## 3471 unique fires (400 in 2018)
+length(unique(trt$history)) ## 3329 unique disturbance histories
+length(unique(trt$fire.name)) ## 952 unique fires 
 
 trt$trt <- ifelse(grepl("Thinning", trt$history) & grepl("Prescribed", trt$history),
                             "Both",
@@ -508,8 +509,7 @@ write.csv(fire.perimeter, "Treatment_Boundary.csv")
 
 
 #### Inside Fire Data ####
-D_csv <- read.csv("D:/Outside Boundary/LandFire csvs/LF_total_dist.csv")
-setwd("D:/Outside Boundary")
+D_csv <- read.csv("./LandFire csvs/LF_total_dist.csv")
 
 IT18 <- read.csv("Inside_Treatment2018.csv")
 colnames(IT18)
@@ -821,7 +821,6 @@ gc()
 write.csv(Inside_Treatment, "Inside_Treatment.csv")
 
 #### Odds of treatment on a perimeter Western USA ####
-setwd("D:/Outside Boundary")
 IT <- read.csv("Inside_Treatment.csv")
 TB <- read.csv("Treatment_Boundary.csv")
 
@@ -834,6 +833,7 @@ IT$thin.pr <- IT$thin.pa/IT$tot
 IT$rx.pr <- IT$rx.pa/IT$tot
 IT$b.pr <- IT$b.pa/IT$tot
 IT$n.pr <- IT$n.pa/IT$tot
+IT$fire.name <- tolower(gsub("[[:punct:][:space:]]", "", IT$fire.name))
 IT$match <- paste(IT$fire.name, IT$year, sep = " ")
 
 TB$tot <- apply(TB[,c(4:7)],1,sum)
@@ -841,20 +841,21 @@ TB$thin.pr <- TB$thin.pa/TB$tot
 TB$rx.pr <- TB$rx.pa/TB$tot
 TB$b.pr <- TB$b.pa/TB$tot
 TB$n.pr <- TB$n.pa/TB$tot
+TB$fire.name <- tolower(gsub("[[:punct:][:space:]]", "", TB$fire.name))
 TB$match <- paste(TB$fire.name, TB$year, sep = " ")
-
 
 TB.pr <- TB[match(TB$match, IT$match),c(13, 8:12)]
 IT.pr <- IT[match(TB$match, IT$match),c(13, 8:12)]
 
 TB.pr <- TB.pr[complete.cases(TB.pr),]
-IT.pr <- IT.pr[complete.cases(IT.pr),] ## 3430 observations
+IT.pr <- IT.pr[complete.cases(IT.pr),] ## 1004 observations
 
 colnames(TB.pr) <- c("name","TB.tot", "TB.thin", "TB.rx", "TB.b", "TB.n")
 colnames(IT.pr) <- c("name", "IT.tot", "IT.thin", "IT.rx", "IT.b", "IT.n")
 
 FireTrtHist <- cbind(TB.pr,IT.pr[,c(2:6)])
 rm(IT);rm(TB);rm(IT.pr);rm(TB.pr)
+
 FireTrtHist$year <- stringr::str_split_fixed(FireTrtHist$name, " ", n = 2)[,2]
 FireTrtHist$name <- stringr::str_split_fixed(FireTrtHist$name, " ", n = 2)[,1]
 FireTrtHist$tot <- FireTrtHist$TB.tot + FireTrtHist$IT.tot
@@ -871,7 +872,7 @@ hist(FireTrtHist$tot[FireTrtHist$tot < 10000])
 smallfires <- FireTrtHist[FireTrtHist$tot < 10000,]
 megafires <- FireTrtHist[FireTrtHist$tot >= 10000,]
 
-par(mfrow = c(2,1))
+par(mfrow = c(1,1))
 ## small fires
 df <- data.frame(per.eff = c(smallfires$thin.odds,smallfires$rx.odds,smallfires$b.odds,smallfires$n.odds),
                  trt = c(rep("thin", nrow(smallfires)), rep("rx", nrow(smallfires)), rep("b", nrow(smallfires)), rep("n",nrow(smallfires))))
@@ -1009,34 +1010,21 @@ a1 <- aov(per.eff ~ trt, data = df)
 summary(a1)
 TukeyHSD(a1)
 
-## trying something here
-test <- FireTrtHist
-test$thin.odds <- round(test$thin.odds, 0)
-test$rx.odds <- round(test$rx.odds, 0)
-test$b.odds <- round(test$b.odds, 0)
-test$n.odds <- round(test$n.odds, 0)
-test$thin.odds[test$thin.odds == 0] <- NA
-test$rx.odds[test$rx.odds == 0] <- NA
-test$b.odds[test$b.odds == 0] <- NA
-test$n.odds[test$n.odds == 0] <- NA
-test$thin.odds[test$thin.odds == -1] <- 0
-test$rx.odds[test$rx.odds == -1] <- 0
-test$b.odds[test$b.odds == -1] <- 0
-test$n.odds[test$n.odds == -1] <- 0
-test$year <- as.factor(test$year)
 
 #### Odds of treatment on a perimeter Southern Rocky Mountain ####
-library(terra)
-W_Fires <- vect("D:/Outside Boundary/NIFC Polygons/WF_Fires.shp")
-sr <- vect("D:/Outside Boundary/Geographic Subsets/SouthernRockyBoundary_10kmBuff.shp")
+## Need to add a bunch of different ecoregions and a for loop to output the results
+
+W_Fires <- vect("./mtbs_perimeter_data/WF_Fires.shp")
+W_Fires$Incid_Name <- tolower(gsub("[[:punct:][:space:]]", "", W_Fires$Incid_Name))
+sr <- vect("./Geographic Subsets/SouthernRockyBoundary_10kmBuff.shp")
 SR_Fires <- crop(W_Fires,sr)
-SR_Fires <- as.data.frame(SR_Fires)
-SR_FireTrt_Hist <- FireTrtHist[FireTrtHist$name %in% SR_Fires$IncidentNa,]
+SR_Fires <- values(SR_Fires)
+SR_FireTrt_Hist <- FireTrtHist[FireTrtHist$name %in% SR_Fires$Incid_Name,]
 
 smallfires <- SR_FireTrt_Hist[SR_FireTrt_Hist$tot < 10000,]
 megafires <- SR_FireTrt_Hist[SR_FireTrt_Hist$tot >= 10000,]
 
-par(mfrow = c(2,1))
+par(mfrow = c(1,1))
 ## small fires
 df <- data.frame(per.eff = c(smallfires$thin.odds,smallfires$rx.odds,smallfires$b.odds,smallfires$n.odds),
                  trt = c(rep("thin", nrow(smallfires)), rep("rx", nrow(smallfires)), rep("b", nrow(smallfires)), rep("n",nrow(smallfires))))
@@ -1175,15 +1163,7 @@ summary(a1)
 TukeyHSD(a1)
 
 
-
 #### Fire Lines Modelling - all vars in one model ####
-library(terra)
-library(dplyr)
-library(caret)
-library(randomForest)
-library(pROC)
-
-setwd("D:/Outside Boundary")
 Engaged_Lines <- read.csv("Engaged_Lines_DisturbanceHistory.csv")
 colnames(Engaged_Lines)
 Engaged_Lines <- Engaged_Lines[,c(31,32,34:38,28,29)]
