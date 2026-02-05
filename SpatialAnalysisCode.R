@@ -1187,7 +1187,7 @@ Engaged_Lines$TS.thin[is.na(Engaged_Lines$TS.thin)] <- 30
 ## Summary of data
 table(Engaged_Lines$stat)
 mean(ifelse(Engaged_Lines$stat == "EF",1,0))*100
-## 25% of the lines failed across all years
+## 38% of the lines failed across all years
 table(Engaged_Lines$year)
 (table(Engaged_Lines$year)/nrow(Engaged_Lines))*100
 table(Engaged_Lines$trt)
@@ -1202,7 +1202,6 @@ hist(Engaged_Lines$prop.thin)
 min(Engaged_Lines$prop.thin, na.rm = TRUE)
 max(Engaged_Lines$prop.thin, na.rm = TRUE)
 hist(Engaged_Lines$prop.thin[Engaged_Lines$prop.thin > 0])
-
 
 hist(Engaged_Lines$TS.rx)
 hist(Engaged_Lines$TS.thin)
@@ -1233,7 +1232,7 @@ balance <- NA
 error <- matrix(data = NA, nrow = n, ncol = 500) ## ncol = ntree
 AUC.val <- NA
 
-r <- rast("LandFire TIFs/WF_dist.tif")
+r <- rast("./LandFire TIFs/WF_dist.tif")
 blank <- rast(ext(r), resolution=100, vals=NA) ## gonna expand this
 crs(blank) <- crs(r)
 
@@ -1502,13 +1501,6 @@ lo <- loess(TS.thin.y.mean~TS.thin.x.mean)
 lines(y = predict(lo), x = TS.thin.x.mean[1:length(predict(lo))], col = "red", lwd = 2)
 
 #### splitting rf model into multiple - western USA ####
-library(terra)
-library(dplyr)
-library(caret)
-library(randomForest)
-library(pROC)
-
-setwd("D:/Outside Boundary")
 Engaged_Lines <- read.csv("Engaged_Lines_DisturbanceHistory.csv")
 colnames(Engaged_Lines)
 Engaged_Lines <- Engaged_Lines[,c(31,32,34:38,28,29)]
@@ -1566,7 +1558,7 @@ r2 <- matrix(data = NA, nrow = n, ncol = 500)
 AUC.val1 <- NA
 AUC.val2 <- NA
 
-r <- rast("LandFire TIFs/WF_dist.tif")
+r <- rast("./LandFire TIFs/WF_dist.tif")
 blank <- rast(ext(r), resolution=100, vals=NA) ## gonna expand this
 crs(blank) <- crs(r)
 
@@ -1575,7 +1567,7 @@ trt2 <- Engaged_Lines[Engaged_Lines$trt == levels(Engaged_Lines$trt)[2], ]
 trt3 <- Engaged_Lines[Engaged_Lines$trt == levels(Engaged_Lines$trt)[3], ]
 trt4 <- Engaged_Lines[Engaged_Lines$trt == levels(Engaged_Lines$trt)[4], ]
 
-
+par(mfrow = c(1,1))
 ## for loop for the random forest and summary data
 for(i in 1:n){
   set.seed(i)
@@ -1655,6 +1647,19 @@ for(i in 1:n){
   dat_sub2$obs <- NULL
   dat_sub2$pred <- NULL
   
+  ## balancing dat_sub2 - requires upsampling
+  type1 <- dat_sub2[round(dat_sub2$stat, 0) == -1, ]
+  correct <- dat_sub2[round(dat_sub2$stat, 0) == 0, ]
+  type2 <- dat_sub2[round(dat_sub2$stat, 0) == 1, ]
+  
+  set.seed(i)
+  type1 <- type1[sample(nrow(type1), 1000, replace = TRUE), ]
+  set.seed(i)
+  correct <- correct[sample(nrow(correct), 1000, replace = TRUE), ]
+  set.seed(i)
+  type2 <- type2[sample(nrow(type2), 1000, replace = TRUE), ]
+  dat_sub2 <- rbind(type1,correct,type2)
+  
   set.seed(i)
   vec <- order(dmat[sample(1:nrow(dat_sub2),1),]) ## getting rows in order of distance to random point generated
   vec <- vec[c(1:(0.75*nrow(dat_sub2)))]
@@ -1710,7 +1715,7 @@ for(i in 1:n){
 }
 
 ## pred vs obs plot
-par(mfrow = c(1,2))
+par(mfrow = c(1,1))
 # y_hats1.diff <- y_hats1.diff*100 ## converting to %
 max(y_hats1.diff);min(y_hats1.diff)
 plot(x = 1:length(y_hats1.diff), y = y_hats1.diff,
@@ -1730,7 +1735,7 @@ max(y_hats2.diff);min(y_hats2.diff)
 plot(x = 1:length(y_hats2.diff), y = y_hats2.diff,
      pch = 16,
      xlab = "model run",
-     ylim = c(min(y_hats1.diff)-0.1,max(y_hats1.diff)+0.1),
+     ylim = c(min(y_hats2.diff)-0.1,max(y_hats2.diff)+0.1),
      las = 1,
      main = "Treatments",
      ylab = "Average Predicted - Observed",
@@ -1807,10 +1812,10 @@ mean(AUC.val2);min(AUC.val2);max(AUC.val2)
 
 r2.mean <- apply(r2,1,mean)
 mean(r2.mean);min(r2.mean);max(r2.mean)
-## between 1 - 10% of additional variance explained (average 5.5%)
-# [1] 0.05530371
-# [1] 0.0133965
-# [1] 0.09883437
+## between 9 - 28% of additional variance explained (average 5.5%)
+# [1] 0.1849699
+# [1] 0.09822615
+# [1] 0.2831608
 
 ## VarImp Plot 1
 varImp.plotting1 <- data.frame(name = c(varImp1.names[c(1),1],"spatial"),
@@ -1824,7 +1829,7 @@ max(varImp.plotting1$max)
 par(mfrow = c(1,2), oma = c(0,3,0,0))
 plot(varImp.plotting1$mean,
      ylim = c(0,3),
-     xlim = c(0,max(varImp.plotting2$max)), ## max of varImp.plotting$max + a few
+     xlim = c(0,max(varImp.plotting1$max)), ## max of varImp.plotting$max + a few
      las = 1,
      type = "n",
      ylab = "",
@@ -1956,6 +1961,10 @@ hist(round(training_set$stat, 0),
      main = "Example Training Data Western USA",
      las = 1,
      xlab = "Error Category")
+hist(training_set$stat,
+     main = "Example Training Data Western USA",
+     las = 1,
+     xlab = "Error Category")
 
 #### splitting rf into multiple - southern rockies scale ####
 ## will need to extract the engaged lines data to southern rockies
@@ -2011,7 +2020,7 @@ r2_SR <- matrix(data = NA, nrow = n, ncol = 500)
 AUC.val1_SR <- NA
 AUC.val2_SR <- NA
 
-r <- rast("LandFire TIFs/WF_dist.tif")
+r <- rast("./LandFire TIFs/WF_dist.tif")
 blank <- rast(ext(r), resolution=100, vals=NA) ## gonna expand this
 crs(blank) <- crs(r)
 
@@ -2107,6 +2116,8 @@ for(i in 1:n){
   dat_sub2$stat <- as.numeric(res4pred)
   dat_sub2$obs <- NULL
   dat_sub2$pred <- NULL
+  
+  #### ADD BALANCING HERE
   
   set.seed(i)
   vec <- order(dmat[sample(1:nrow(dat_sub2),1),]) ## getting rows in order of distance to random point generated
