@@ -6,6 +6,7 @@ library(dplyr)
 library(caret)
 library(randomForest)
 library(pROC)
+library(viridis)
 setwd("D:/Outside Boundary")
 
 
@@ -820,7 +821,7 @@ gc()
 
 write.csv(Inside_Treatment, "Inside_Treatment.csv")
 
-#### Odds of treatment on a perimeter Western USA ####
+#### Fire Perimeter Effects ####
 IT <- read.csv("Inside_Treatment.csv")
 TB <- read.csv("Treatment_Boundary.csv")
 
@@ -869,301 +870,314 @@ FireTrtHist <- FireTrtHist[order(FireTrtHist$year, FireTrtHist$tot,FireTrtHist$n
 hist(FireTrtHist$tot)
 FireTrtHist$tot <- (FireTrtHist$tot * 900)/10000 ## now in ha
 hist(FireTrtHist$tot[FireTrtHist$tot < 10000])
+
+## adding ecoregion as a factor to color code things
+W_Fires <- vect("./mtbs_perimeter_data/WF_Fires.shp")
+W_Fires$Incid_Name <- tolower(gsub("[[:punct:][:space:]]", "", W_Fires$Incid_Name))
+temp <- list.files(path = "./Geographic Subsets/Ecoregions", pattern="*.shp")
+temp <- temp[-9] ## removing PugetLowlands (no fires within ecoregion)
+
+for(i in 1:length(temp)){
+  path <- paste("./Geographic Subsets/Ecoregions/", temp[i], sep = "")
+  assign(temp[i], terra::vect(path))
+} ## loading in the shapefiles I want
+rm(i);rm(path)
+
+obj.names <- gsub(".shp", "", temp)
+FireTrtHist$ecoregion <- NA
+
+for(i in 1:length(temp)){
+  X <- get(temp[i])
+  X_Fires <- crop(W_Fires,X)
+  X_Fires <- values(X_Fires)
+  FireTrtHist$ecoregion[FireTrtHist$name %in% X_Fires$Incid_Name] <- obj.names[i]
+}
+rm(list = temp)
+rm(temp);rm(X);rm(X_Fires);rm(i);rm(W_Fires)
+
+table(is.na(FireTrtHist$ecoregion)) ## 98 fires aren't in the ecoregions accounted for, after looking into it, they occur just outside of the ecoregions (don't have a 10km buffer on each shapefile)
+FireTrtHist <- FireTrtHist[complete.cases(FireTrtHist$ecoregion),]
+FireTrtHist$ecoregion <- as.factor(FireTrtHist$ecoregion)
+levels(FireTrtHist$ecoregion)
+
 smallfires <- FireTrtHist[FireTrtHist$tot < 10000,]
 megafires <- FireTrtHist[FireTrtHist$tot >= 10000,]
 
-par(mfrow = c(1,1))
+se <- function(x, na.rm = FALSE){sd(x, na.rm = na.rm)/sqrt(length(!is.na(x)))} ## creating a function for standard error
+
 ## small fires
 df <- data.frame(per.eff = c(smallfires$thin.odds,smallfires$rx.odds,smallfires$b.odds,smallfires$n.odds),
-                 trt = c(rep("thin", nrow(smallfires)), rep("rx", nrow(smallfires)), rep("b", nrow(smallfires)), rep("n",nrow(smallfires))))
-a1 <- aov(per.eff ~ trt, data = df)
-summary(a1)
-TukeyHSD(a1)
-aggregate(per.eff ~ trt, data = df, mean) ## ~ 12% more likely ot be in a perimeter for small fires
+                 trt = c(rep("thin", nrow(smallfires)), rep("rx", nrow(smallfires)), rep("b", nrow(smallfires)), rep("n",nrow(smallfires))),
+                 ecoregion = rep(smallfires$ecoregion, 4))
 
-se <- function(x, na.rm = FALSE){sd(x, na.rm = na.rm)/sqrt(length(!is.na(x)))} ## creating a function for standard error
-plot(x = c(1:4),
+par(mfrow = c(2,1))
+pal <- viridis(12, alpha = 0.5)
+plot(x = c(0:5),
      ylim = c(-1.1,1.1),
      las = 1,
      cex.axis = 1.5,
-     ylab = "", ## density
+     ylab = "",
      type = "n",
      xaxt = "n",
      xlab = "") ## disturbance history
-axis(1, at = c(1:4), line = 1, tick = F, labels = c("Thin", "Rx", "Both", "Neither"), cex.axis = 1.5)
+axis(1, at = c(2:5), line = 1, tick = F, labels = c("Thin", "Rx", "Both", "Neither"), cex.axis = 1.5)
 abline(h = 0, lty = 2)
-points(x = jitter(rep(1, length(df$per.eff[df$trt == "thin"])), factor = 2),
+points(x = jitter(rep(2, length(df$per.eff[df$trt == "thin"])), factor = 2),
        y = df$per.eff[df$trt == "thin"],
-       col = rgb(0,0,0, alpha = 0.5),
+       col = pal[df$ecoregion],
        pch = 19)
-points(x = jitter(rep(2, length(df$per.eff[df$trt == "rx"])), factor = 2),
+points(x = jitter(rep(3, length(df$per.eff[df$trt == "rx"])), factor = 2),
        y = df$per.eff[df$trt == "rx"],
-       col = rgb(0,0,0, alpha = 0.5),
+       col = pal[df$ecoregion],
        pch = 19)
-points(x = jitter(rep(3, length(df$per.eff[df$trt == "b"])), factor = 2),
+points(x = jitter(rep(4, length(df$per.eff[df$trt == "b"])), factor = 2),
        y = df$per.eff[df$trt == "b"],
-       col = rgb(0,0,0, alpha = 0.5),
+       col = pal[df$ecoregion],
        pch = 19)
-points(x = jitter(rep(4, length(df$per.eff[df$trt == "n"])), factor = 2),
+points(x = jitter(rep(5, length(df$per.eff[df$trt == "n"])), factor = 2),
        y = df$per.eff[df$trt == "n"],
-       col = rgb(0,0,0, alpha = 0.5),
+       col = pal[df$ecoregion],
        pch = 19)
-points(x = 1,
+points(x = 2.2,
        y = mean(df$per.eff[df$trt == "thin"], na.rm = TRUE),
-       col = rgb(1,0,0, alpha = 1),
+       col = rgb(0,0,0, alpha = 1),
        pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x0 = 1, 
-         y1 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x1 = 1, 
-         col = rgb(1,0,0),lwd = 1.5)
-points(x = 2,
+segments(y0 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x0 = 2.2, 
+         y1 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x1 = 2.2, 
+         col = rgb(0,0,0),lwd = 1.5)
+points(x = 3.2,
        y = mean(df$per.eff[df$trt == "rx"], na.rm = TRUE),
-       col = rgb(1,0,0, alpha = 1),
+       col = rgb(0,0,0, alpha = 1),
        pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x0 = 2, 
-         y1 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x1 = 2, 
-         col = rgb(1,0,0),lwd = 1.5)
-points(x = 3,
+segments(y0 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x0 = 3.2, 
+         y1 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x1 = 3.2, 
+         col = rgb(0,0,0),lwd = 1.5)
+points(x = 4.2,
        y = mean(df$per.eff[df$trt == "b"], na.rm = TRUE),
-       col = rgb(1,0,0, alpha = 1),
+       col = rgb(0,0,0, alpha = 1),
        pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x0 = 3, 
-         y1 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x1 = 3, 
-         col = rgb(1,0,0),lwd = 1.5)
-points(x = 4,
+segments(y0 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x0 = 4.2, 
+         y1 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x1 = 4.2, 
+         col = rgb(0,0,0),lwd = 1.5)
+points(x = 5.3,
        y = mean(df$per.eff[df$trt == "n"], na.rm = TRUE),
-       col = rgb(1,0,0, alpha = 1),
+       col = rgb(0,0,0, alpha = 1),
        pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x0 = 4, 
-         y1 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x1 = 4, 
-         col = rgb(1,0,0),lwd = 1.5)
+segments(y0 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x0 = 5.3, 
+         y1 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x1 = 5.3, 
+         col = rgb(0,0,0),lwd = 1.5)
+plot(x = c(0:5),
+     ylim = c(-1.1,1.1),
+     las = 1,
+     cex.axis = 1.5,
+     ylab = "",
+     type = "n",
+     xaxt = "n",
+     xlab = "") ## disturbance history
+axis(1, at = c(2:5), line = 1, tick = F, labels = c("Thin", "Rx", "Both", "Neither"), cex.axis = 1.5)
+abline(h = 0, lty = 2)
 
+loc <- 1.6 ## add 0.08 each time
+loc.r <- loc + 1
+loc.b <- loc + 2
+loc.n <- loc + 3
+pal <- viridis(12, alpha = 1)
+
+for(i in 1:length(obj.names)){
+  ## thin
+points(x = loc,
+       y = mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE),
+       col = pal[i],
+       pch = 16)
+segments(y0 = (mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "thin" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x0 = loc, 
+         y1 = (mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "thin" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x1 = loc, 
+         col = pal[i],lwd = 1.5)
+loc <- loc +0.08
+  ## burn
+points(x = loc.r,
+       y = mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE),
+       col = pal[i],
+       pch = 16)
+segments(y0 = (mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "rx" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x0 = loc.r, 
+         y1 = (mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "rx" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x1 = loc.r, 
+         col = pal[i],lwd = 1.5)
+loc.r <- loc + 1
+  ## both
+points(x = loc.b,
+       y = mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE),
+       col = pal[i],
+       pch = 16)
+segments(y0 = (mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "b" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x0 = loc.b, 
+         y1 = (mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "b" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x1 = loc.b, 
+         col = pal[i],lwd = 1.5)
+loc.b <- loc + 2
+  ## neither
+points(x = loc.n,
+       y = mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE),
+       col = pal[i],
+       pch = 16)
+segments(y0 = (mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "n" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x0 = loc.n, 
+         y1 = (mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "n" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x1 = loc.n, 
+         col = pal[i],lwd = 1.5)
+loc.n <- loc + 3
+}
+legend("bottom", legend = obj.names, col = pal, pch = 16, bty = "n", ncol = 6)
+
+## summary stats small fires
 a1 <- aov(per.eff ~ trt, data = df)
 summary(a1)
 TukeyHSD(a1)
 
-## mega fires
+a2 <- aov(per.eff ~ trt + ecoregion, data = df)
+summary(a2)
+TukeyHSD(a2)
+
+## west wide
+aggregate(per.eff ~ trt, data = df, mean) 
+aggregate(per.eff ~ trt, data = df, se) 
+
+## broken down by ecoregion
+aggregate(per.eff ~ trt + ecoregion, data = df, mean) 
+aggregate(per.eff ~ trt + ecoregion, data = df, se) 
+
+
+## large fires
 df <- data.frame(per.eff = c(megafires$thin.odds,megafires$rx.odds,megafires$b.odds,megafires$n.odds),
-                 trt = c(rep("thin", nrow(megafires)), rep("rx", nrow(megafires)), rep("b", nrow(megafires)), rep("n",nrow(megafires))))
-a1 <- aov(per.eff ~ trt, data = df)
-summary(a1)
-TukeyHSD(a1)
-aggregate(per.eff ~ trt, data = df, mean) ## ~ 40% more likely to be in the interior for large fires
+                 trt = c(rep("thin", nrow(megafires)), rep("rx", nrow(megafires)), rep("b", nrow(megafires)), rep("n",nrow(megafires))),
+                 ecoregion = rep(megafires$ecoregion, 4))
 
-
-se <- function(x, na.rm = FALSE){sd(x, na.rm = na.rm)/sqrt(length(!is.na(x)))} ## creating a function for standard error
-plot(x = c(1:4),
+par(mfrow = c(2,1))
+pal <- viridis(12, alpha = 0.5)
+plot(x = c(0:5),
      ylim = c(-1.1,1.1),
      las = 1,
      cex.axis = 1.5,
-     ylab = "", ## density
+     ylab = "",
      type = "n",
      xaxt = "n",
      xlab = "") ## disturbance history
-axis(1, at = c(1:4), line = 1, tick = F, labels = c("Thin", "Rx", "Both", "Neither"), cex.axis = 1.5)
+axis(1, at = c(2:5), line = 1, tick = F, labels = c("Thin", "Rx", "Both", "Neither"), cex.axis = 1.5)
 abline(h = 0, lty = 2)
-points(x = jitter(rep(1, length(df$per.eff[df$trt == "thin"])), factor = 2),
+points(x = jitter(rep(2, length(df$per.eff[df$trt == "thin"])), factor = 2),
        y = df$per.eff[df$trt == "thin"],
-       col = rgb(0,0,0, alpha = 0.5),
+       col = pal[df$ecoregion],
        pch = 19)
-points(x = jitter(rep(2, length(df$per.eff[df$trt == "rx"])), factor = 2),
+points(x = jitter(rep(3, length(df$per.eff[df$trt == "rx"])), factor = 2),
        y = df$per.eff[df$trt == "rx"],
-       col = rgb(0,0,0, alpha = 0.5),
+       col = pal[df$ecoregion],
        pch = 19)
-points(x = jitter(rep(3, length(df$per.eff[df$trt == "b"])), factor = 2),
+points(x = jitter(rep(4, length(df$per.eff[df$trt == "b"])), factor = 2),
        y = df$per.eff[df$trt == "b"],
-       col = rgb(0,0,0, alpha = 0.5),
+       col = pal[df$ecoregion],
        pch = 19)
-points(x = jitter(rep(4, length(df$per.eff[df$trt == "n"])), factor = 2),
+points(x = jitter(rep(5, length(df$per.eff[df$trt == "n"])), factor = 2),
        y = df$per.eff[df$trt == "n"],
-       col = rgb(0,0,0, alpha = 0.5),
+       col = pal[df$ecoregion],
        pch = 19)
-points(x = 1,
+points(x = 2.2,
        y = mean(df$per.eff[df$trt == "thin"], na.rm = TRUE),
-       col = rgb(1,0,0, alpha = 1),
+       col = rgb(0,0,0, alpha = 1),
        pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x0 = 1, 
-         y1 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x1 = 1, 
-         col = rgb(1,0,0),lwd = 1.5)
-points(x = 2,
+segments(y0 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x0 = 2.2, 
+         y1 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x1 = 2.2, 
+         col = rgb(0,0,0),lwd = 1.5)
+points(x = 3.2,
        y = mean(df$per.eff[df$trt == "rx"], na.rm = TRUE),
-       col = rgb(1,0,0, alpha = 1),
+       col = rgb(0,0,0, alpha = 1),
        pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x0 = 2, 
-         y1 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x1 = 2, 
-         col = rgb(1,0,0),lwd = 1.5)
-points(x = 3,
+segments(y0 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x0 = 3.2, 
+         y1 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x1 = 3.2, 
+         col = rgb(0,0,0),lwd = 1.5)
+points(x = 4.2,
        y = mean(df$per.eff[df$trt == "b"], na.rm = TRUE),
-       col = rgb(1,0,0, alpha = 1),
+       col = rgb(0,0,0, alpha = 1),
        pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x0 = 3, 
-         y1 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x1 = 3, 
-         col = rgb(1,0,0),lwd = 1.5)
-points(x = 4,
+segments(y0 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x0 = 4.2, 
+         y1 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x1 = 4.2, 
+         col = rgb(0,0,0),lwd = 1.5)
+points(x = 5.3,
        y = mean(df$per.eff[df$trt == "n"], na.rm = TRUE),
-       col = rgb(1,0,0, alpha = 1),
+       col = rgb(0,0,0, alpha = 1),
        pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x0 = 4, 
-         y1 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x1 = 4, 
-         col = rgb(1,0,0),lwd = 1.5)
-
-a1 <- aov(per.eff ~ trt, data = df)
-summary(a1)
-TukeyHSD(a1)
-
-
-#### Odds of treatment on a perimeter Southern Rocky Mountain ####
-## Need to add a bunch of different ecoregions and a for loop to output the results
-
-W_Fires <- vect("./mtbs_perimeter_data/WF_Fires.shp")
-W_Fires$Incid_Name <- tolower(gsub("[[:punct:][:space:]]", "", W_Fires$Incid_Name))
-sr <- vect("./Geographic Subsets/SouthernRockyBoundary_10kmBuff.shp")
-SR_Fires <- crop(W_Fires,sr)
-SR_Fires <- values(SR_Fires)
-SR_FireTrt_Hist <- FireTrtHist[FireTrtHist$name %in% SR_Fires$Incid_Name,]
-
-smallfires <- SR_FireTrt_Hist[SR_FireTrt_Hist$tot < 10000,]
-megafires <- SR_FireTrt_Hist[SR_FireTrt_Hist$tot >= 10000,]
-
-par(mfrow = c(1,1))
-## small fires
-df <- data.frame(per.eff = c(smallfires$thin.odds,smallfires$rx.odds,smallfires$b.odds,smallfires$n.odds),
-                 trt = c(rep("thin", nrow(smallfires)), rep("rx", nrow(smallfires)), rep("b", nrow(smallfires)), rep("n",nrow(smallfires))))
-a1 <- aov(per.eff ~ trt, data = df)
-summary(a1)
-TukeyHSD(a1)
-aggregate(per.eff ~ trt, data = df, mean) ## ~ 12% more likely ot be in a perimeter for small fires
-
-se <- function(x, na.rm = FALSE){sd(x, na.rm = na.rm)/sqrt(length(!is.na(x)))} ## creating a function for standard error
-plot(x = c(1:4),
+segments(y0 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x0 = 5.3, 
+         y1 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x1 = 5.3, 
+         col = rgb(0,0,0),lwd = 1.5)
+plot(x = c(0:5),
      ylim = c(-1.1,1.1),
      las = 1,
      cex.axis = 1.5,
-     ylab = "", ## density
+     ylab = "",
      type = "n",
      xaxt = "n",
      xlab = "") ## disturbance history
-axis(1, at = c(1:4), line = 1, tick = F, labels = c("Thin", "Rx", "Both", "Neither"), cex.axis = 1.5)
+axis(1, at = c(2:5), line = 1, tick = F, labels = c("Thin", "Rx", "Both", "Neither"), cex.axis = 1.5)
 abline(h = 0, lty = 2)
-points(x = jitter(rep(1, length(df$per.eff[df$trt == "thin"])), factor = 2),
-       y = df$per.eff[df$trt == "thin"],
-       col = rgb(0,0,0, alpha = 0.5),
-       pch = 19)
-points(x = jitter(rep(2, length(df$per.eff[df$trt == "rx"])), factor = 2),
-       y = df$per.eff[df$trt == "rx"],
-       col = rgb(0,0,0, alpha = 0.5),
-       pch = 19)
-points(x = jitter(rep(3, length(df$per.eff[df$trt == "b"])), factor = 2),
-       y = df$per.eff[df$trt == "b"],
-       col = rgb(0,0,0, alpha = 0.5),
-       pch = 19)
-points(x = jitter(rep(4, length(df$per.eff[df$trt == "n"])), factor = 2),
-       y = df$per.eff[df$trt == "n"],
-       col = rgb(0,0,0, alpha = 0.5),
-       pch = 19)
-points(x = 1,
-       y = mean(df$per.eff[df$trt == "thin"], na.rm = TRUE),
-       col = rgb(1,0,0, alpha = 1),
-       pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x0 = 1, 
-         y1 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x1 = 1, 
-         col = rgb(1,0,0),lwd = 1.5)
-points(x = 2,
-       y = mean(df$per.eff[df$trt == "rx"], na.rm = TRUE),
-       col = rgb(1,0,0, alpha = 1),
-       pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x0 = 2, 
-         y1 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x1 = 2, 
-         col = rgb(1,0,0),lwd = 1.5)
-points(x = 3,
-       y = mean(df$per.eff[df$trt == "b"], na.rm = TRUE),
-       col = rgb(1,0,0, alpha = 1),
-       pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x0 = 3, 
-         y1 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x1 = 3, 
-         col = rgb(1,0,0),lwd = 1.5)
-points(x = 4,
-       y = mean(df$per.eff[df$trt == "n"], na.rm = TRUE),
-       col = rgb(1,0,0, alpha = 1),
-       pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x0 = 4, 
-         y1 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x1 = 4, 
-         col = rgb(1,0,0),lwd = 1.5)
 
+loc <- 1.6 ## add 0.08 each time
+loc.r <- loc + 1
+loc.b <- loc + 2
+loc.n <- loc + 3
+pal <- viridis(12, alpha = 1)
+
+for(i in 1:length(obj.names)){
+  ## thin
+  points(x = loc,
+         y = mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE),
+         col = pal[i],
+         pch = 16)
+  segments(y0 = (mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "thin" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x0 = loc, 
+           y1 = (mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "thin" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x1 = loc, 
+           col = pal[i],lwd = 1.5)
+  loc <- loc +0.08
+  ## burn
+  points(x = loc.r,
+         y = mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE),
+         col = pal[i],
+         pch = 16)
+  segments(y0 = (mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "rx" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x0 = loc.r, 
+           y1 = (mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "rx" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x1 = loc.r, 
+           col = pal[i],lwd = 1.5)
+  loc.r <- loc + 1
+  ## both
+  points(x = loc.b,
+         y = mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE),
+         col = pal[i],
+         pch = 16)
+  segments(y0 = (mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "b" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x0 = loc.b, 
+           y1 = (mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "b" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x1 = loc.b, 
+           col = pal[i],lwd = 1.5)
+  loc.b <- loc + 2
+  ## neither
+  points(x = loc.n,
+         y = mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE),
+         col = pal[i],
+         pch = 16)
+  segments(y0 = (mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "n" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x0 = loc.n, 
+           y1 = (mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "n" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x1 = loc.n, 
+           col = pal[i],lwd = 1.5)
+  loc.n <- loc + 3
+}
+# legend("bottom", legend = obj.names, col = pal, pch = 16, bty = "n", ncol = 6)
+
+## summary stats large fires
 a1 <- aov(per.eff ~ trt, data = df)
 summary(a1)
 TukeyHSD(a1)
 
-## mega fires
-df <- data.frame(per.eff = c(megafires$thin.odds,megafires$rx.odds,megafires$b.odds,megafires$n.odds),
-                 trt = c(rep("thin", nrow(megafires)), rep("rx", nrow(megafires)), rep("b", nrow(megafires)), rep("n",nrow(megafires))))
-a1 <- aov(per.eff ~ trt, data = df)
-summary(a1)
-TukeyHSD(a1)
-aggregate(per.eff ~ trt, data = df, mean) ## ~ 40% more likely to be in the interior for large fires
+a2 <- aov(per.eff ~ trt + ecoregion, data = df)
+summary(a2)
+TukeyHSD(a2)
+
+## west wide
+aggregate(per.eff ~ trt, data = df, mean) 
+aggregate(per.eff ~ trt, data = df, se) 
+
+## broken down by ecoregion
+aggregate(per.eff ~ trt + ecoregion, data = df, mean) 
+aggregate(per.eff ~ trt + ecoregion, data = df, se) 
 
 
-se <- function(x, na.rm = FALSE){sd(x, na.rm = na.rm)/sqrt(length(!is.na(x)))} ## creating a function for standard error
-plot(x = c(1:4),
-     ylim = c(-1.1,1.1),
-     las = 1,
-     cex.axis = 1.5,
-     ylab = "", ## density
-     type = "n",
-     xaxt = "n",
-     xlab = "") ## disturbance history
-axis(1, at = c(1:4), line = 1, tick = F, labels = c("Thin", "Rx", "Both", "Neither"), cex.axis = 1.5)
-abline(h = 0, lty = 2)
-points(x = jitter(rep(1, length(df$per.eff[df$trt == "thin"])), factor = 2),
-       y = df$per.eff[df$trt == "thin"],
-       col = rgb(0,0,0, alpha = 0.5),
-       pch = 19)
-points(x = jitter(rep(2, length(df$per.eff[df$trt == "rx"])), factor = 2),
-       y = df$per.eff[df$trt == "rx"],
-       col = rgb(0,0,0, alpha = 0.5),
-       pch = 19)
-points(x = jitter(rep(3, length(df$per.eff[df$trt == "b"])), factor = 2),
-       y = df$per.eff[df$trt == "b"],
-       col = rgb(0,0,0, alpha = 0.5),
-       pch = 19)
-points(x = jitter(rep(4, length(df$per.eff[df$trt == "n"])), factor = 2),
-       y = df$per.eff[df$trt == "n"],
-       col = rgb(0,0,0, alpha = 0.5),
-       pch = 19)
-points(x = 1,
-       y = mean(df$per.eff[df$trt == "thin"], na.rm = TRUE),
-       col = rgb(1,0,0, alpha = 1),
-       pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x0 = 1, 
-         y1 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x1 = 1, 
-         col = rgb(1,0,0),lwd = 1.5)
-points(x = 2,
-       y = mean(df$per.eff[df$trt == "rx"], na.rm = TRUE),
-       col = rgb(1,0,0, alpha = 1),
-       pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x0 = 2, 
-         y1 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x1 = 2, 
-         col = rgb(1,0,0),lwd = 1.5)
-points(x = 3,
-       y = mean(df$per.eff[df$trt == "b"], na.rm = TRUE),
-       col = rgb(1,0,0, alpha = 1),
-       pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x0 = 3, 
-         y1 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x1 = 3, 
-         col = rgb(1,0,0),lwd = 1.5)
-points(x = 4,
-       y = mean(df$per.eff[df$trt == "n"], na.rm = TRUE),
-       col = rgb(1,0,0, alpha = 1),
-       pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x0 = 4, 
-         y1 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x1 = 4, 
-         col = rgb(1,0,0),lwd = 1.5)
-
-a1 <- aov(per.eff ~ trt, data = df)
-summary(a1)
-TukeyHSD(a1)
-
-
-#### splitting rf model into multiple - western USA ####
+#### Random Forest - Western USA ####
 Engaged_Lines <- read.csv("Engaged_Lines_DisturbanceHistory.csv")
 colnames(Engaged_Lines)
 Engaged_Lines <- Engaged_Lines[,c(31,32,34:38,28,29)]
@@ -1231,7 +1245,8 @@ trt3 <- Engaged_Lines[Engaged_Lines$trt == levels(Engaged_Lines$trt)[3], ]
 trt4 <- Engaged_Lines[Engaged_Lines$trt == levels(Engaged_Lines$trt)[4], ]
 
 #### May need to thin years ####
-## at least make sure it is balanced
+(table(Engaged_Lines$year)/nrow(Engaged_Lines))*100 ## not balanced
+## talk with Sarah on this, I think it might be okay
 
 par(mfrow = c(1,1))
 ## for loop for the random forest and summary data
@@ -1411,14 +1426,14 @@ abline(h = mean(y_hats2.diff), col="firebrick4", lty = 2)
 # text(x = 30, y = 50, "Average difference = 12.4%") 
 
 mean(balance1);min(balance1);max(balance1) ## balance of line status
-# [1] 0.5117817
-# [1] 0.4999235
-# [1] 0.5246781
+# [1] 0.4918152
+# [1] 0.4734645
+# [1] 0.5159817
 
 mean(balance2);min(balance2);max(balance2) ## average residual error from rf1 (per model run)
-# [1] 0.03831505
-# [1] -0.02821458
-# [1] 0.1057284
+# [1] 0.02118591
+# [1] -0.01630067
+# [1] 0.05184733
 
 error.mean <- apply(error1,2,mean)
 min(error1);max(error1)
@@ -1467,21 +1482,22 @@ segments(x0 = 1.8, y0 = max(AUC.val2), x1 = 1.8, y1 = min(AUC.val2))
 abline(h = 0.5, lty = 2)
 
 mean(AUC.val1);min(AUC.val1);max(AUC.val1)
-# [1] 0.7642294
-# [1] 0.7529451
-# [1] 0.7771144
+# [1] 0.7681421
+# [1] 0.7543344
+# [1] 0.7820763
 
 mean(AUC.val2);min(AUC.val2);max(AUC.val2)
-# [1] 0.6296133
-# [1] 0.421915
-# [1] 0.7039798
+# [1] 0.7059042
+# [1] 0.6331383
+# [1] 0.7967686
 
 r2.mean <- apply(r2,1,mean)
 mean(r2.mean);min(r2.mean);max(r2.mean)
-## between 9 - 28% of additional variance explained (average 5.5%)
-# [1] 0.1849699
-# [1] 0.09822615
-# [1] 0.2831608
+hist(r2)
+## between 11 - 40% of additional variance explained (average 5.5%)
+# [1] 0.204494
+# [1] 0.1107893
+# [1] 0.4120808
 
 ## VarImp Plot 1
 varImp.plotting1 <- data.frame(name = c(varImp1.names[c(1),1],"spatial"),
@@ -1632,15 +1648,48 @@ hist(training_set$stat,
      las = 1,
      xlab = "Error Category")
 
-#### splitting rf into multiple - southern rockies scale ####
-## will need to extract the engaged lines data to southern rockies
-# sr <- vect("D:/Outside Boundary/Geographic Subsets/SouthernRockyBoundary_10kmBuff.shp")
-# EL <- Engaged_Lines
-# Engaged_Lines <- vect(EL, geom = c("x","y"), crs = crs(sr))
-# sr_Lines <- crop(Engaged_Lines,sr)
-# sr_Lines_df <- as.data.frame(sr_Lines, geom = c("XY"))
-# write.csv(sr_Lines_df, "Engaged_Lines_sr.csv")
 
+#### spliting data into ecoregion scales ####
+## determine which ecoregions I need
+temp <- list.files(path = "./Geographic Subsets/Ecoregions", pattern="*.shp") ## creating a vector that has all the files in the working directory with .xlsx extensions
+
+for(i in 1:length(temp)){
+  path <- paste("./Geographic Subsets/Ecoregions/", temp[i], sep = "")
+  assign(temp[i], terra::vect(path))
+} ## loading in the shapefiles I want
+rm(i);rm(path)
+
+plot(BlueMnts.shp)
+Engaged_Lines <- read.csv("Engaged_Lines_DisturbanceHistory.csv")
+
+EL <- Engaged_Lines
+Engaged_Lines <- vect(EL, geom = c("x","y"), crs = crs(SouthernRockies.shp))
+gc()
+
+obj.names <- gsub(".shp", "", temp)
+# Loop through each object# Lotempop through each object
+for (i in 1:length(temp)) {
+  # Get the object from the global environment
+  X <- get(temp[i])
+  
+  # Your original code with X
+  X_Lines <- crop(Engaged_Lines, X)
+  X_Lines_df <- as.data.frame(X_Lines, geom = c("XY"))
+  
+  # Create filename using the object name
+  
+  filename <- paste0("Engaged_Lines_", obj.names[i], ".csv")
+  write.csv(X_Lines_df, paste0("./Geographic Subsets/Ecoregions/",filename))
+  
+  # Optional: print progress
+  cat("Processed:", obj.names[i], "\n")
+}
+## no fires in the Puget Lowlands (not too strange)
+gc()
+rm(list = ls())
+gc()
+
+#### Random Forests - Ecoregion Scales ####
 sr_Lines_df <- read.csv("D:/Outside Boundary/Engaged_Lines_sr.csv")
 table(sr_Lines_df$stat)
 (table(sr_Lines_df$stat)/nrow(sr_Lines_df))*100
