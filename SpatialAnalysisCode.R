@@ -11,51 +11,133 @@ setwd("D:/Outside Boundary")
 
 
 #### Load Extent for Cleaning Data ####
-# WesternStates <- vect("./Census State Boundaries/WesternStates.shp")
-WesternForests <- vect("./US EPA Ecoregions/WesternForestEcoregions.shp")
+## study area is 13 forested ecoregions in western CONUS
+temp <- list.files(path = "./Geographic Subsets/Ecoregions", pattern="*.shp") ## finding the shapefiles within file path that are in the study area
+obj.names <- gsub(".shp", "", temp) ## creating a vector with the object names without .shp extension for naming each ecoregion
+
+temp.list <- list()
+for(i in 1:length(temp)){
+  path <- paste("./Geographic Subsets/Ecoregions/", temp[i], sep = "")
+  temp.list[[i]] <- terra::vect(path)
+  temp.list[[i]]$ecoregion <- obj.names[i]
+} ## for loop for loading in the shapefiles within the file path specfied in temp
+rm(i);rm(path);rm(obj.names);rm(temp) ## removing temporary objects
+
+WesternForests <- Reduce(rbind, temp.list) ## combining the SpatVectors within the list into a single object
+plot(WesternForests) ## plotting the study region to double check it worked
+rm(temp.list) ## keeping global environment clean
+writeVector(WesternForests, "./Geographic Subsets/WesternForestEcoregions.shp", overwrite = TRUE)
+
+
+#### Adding Fire Polygon data from MTBS ####
+FirePoly <- vect("./mtbs_perimeter_data/mtbs_perims.shp")
+FirePoly$Ig_Date <- as.numeric(substr(FirePoly$Ig_Date,1,4)) ## changing the date column to only contain the year
+FirePoly <- FirePoly[FirePoly$Ig_Date >= 2018,] ## subsetting only 2018 - 2024
+FirePoly$Incid_Name <- tolower(FirePoly$Incid_Name) ## making the incident names lowercase to remove potential duplicates
+FirePoly <- FirePoly[order(FirePoly$BurnBndAc, decreasing = TRUE),] ## sorting by size
+FirePoly <- FirePoly[!duplicated(paste(FirePoly$Incid_Name,FirePoly$Ig_Date,FirePoly$BurnBndAc)),] ## removing duplicates
+length(unique(paste(FirePoly$Incid_Name,FirePoly$Ig_Date,FirePoly$BurnBndAc))) ## 5918 unique events
+gc()
+
+FirePoly <- FirePoly[,c(colnames(values(FirePoly)) == "Incid_Name" | 
+                          colnames(values(FirePoly)) == "BurnBndAc" |
+                          colnames(values(FirePoly)) == "Ig_Date")]
+gc()
+
+## double checking each of the column names
+colnames(values(FirePoly))
+
+table(terra::is.valid(FirePoly)) ## checking the validity of geometery
+## have several thousand invalid topologies
+FirePoly <- terra::makeValid(FirePoly)
+table(terra::is.valid(FirePoly)) ## checking the validity of geometery
+## validated
+gc()
+
+WesternForests_15km <- terra::buffer(WesternForests, 15000) ## buffering by 1km
+WesternForests_15km <- terra::aggregate(WesternForests_15km) ## dissolving fields, otherwise fires that are partially within 2 ecoregions are not accounted for
+rownumbers <- relate(FirePoly, WesternForests_15km, "within", pairs = T)
+# WF_Fires <- terra::intersect(FirePoly,WesternForests_15km) ## this pulls out the ecoregion information in addition to cropping
+WF_Fires <- FirePoly[c(rownumbers[,1]),]
+vec <- values(WF_Fires)
+WF_Fires <- terra::unique(WF_Fires)
+gc();rm(FirePoly)
+
+vec <- values(WF_Fires) ## currently just over 1k fires
+colnames(vec)
+table(vec$Ig_Date) ## all years represented
+table(is.na(vec$BurnBndAc)) ## no NA values
+
+plot(WF_Fires, add = TRUE, col="red")
+
+count_vertices <- function(v) {
+  n <- nrow(v)
+  vertex_counts <- numeric(n)
+  
+  for(i in 1:n) {
+    coords <- crds(v[i])
+    # Subtract 1 because last point repeats first point
+    vertex_counts[i] <- nrow(coords) - 1
+    progress <- i/n*100
+    if (progress %% 10 == 0) {
+      print(progress)
+    }
+  }
+  
+  return(vertex_counts)
+}
+
+# Remove triangles (3 vertices)
+n_vertices <- count_vertices(WF_Fires)
+WF_Fires <- WF_Fires[n_vertices > 3,]
+table(WF_Fires$Incid_Name)
+vec <- values(WF_Fires) ## no real change
+gc()
+
+writeVector(WF_Fires,"./mtbs_perimeter_data/WF_Fires.shp", overwrite = TRUE)
+rm(vec);rm(i);rm(n_vertices);rm(count_vertices);rm(rownumbers)
+gc()
+
 
 #### Adding Raster files from LandFire (1999-2024) ####
+temp <- list.files(path = "./LandFire TIFs", pattern="*.tif") ## creating a vector that has all the files in the working directory with .tif extensions (i.e., treatment history data)
+temp <- temp[1:26] ## keeping the first 26 variables (only relevant if rerunning code, as we save files to this location with the .tif extension that are not needed for this part of the code)
 
-temp <- list.files(path = "./LandFire TIFs", pattern="*.tif") ## creating a vector that has all the files in the working directory with .xlsx extensions
-temp <- temp[1:26]
-
+temp.list <- list()
 for(i in 1:length(temp)){
   path <- paste("./LandFire TIFs/", temp[i], sep = "")
-  assign(temp[i], terra::rast(path))
-} ## loading in the shapefiles I want
-rm(i);rm(path);rm(temp)
+  temp.list[[i]] <- terra::rast(path)
+} ## loading in the raster files within the LandFire TIFS folder
+rm(i);rm(path);rm(temp) ## keeping the global environment clean
 
-## stacking the rasters
-dist_stack <- c(LF99_Dist.tif,
-                LF00_Dist.tif,LF01_Dist.tif,LF02_Dist.tif,LF03_Dist.tif,LF04_Dist.tif,LF05_Dist.tif,LF06_Dist.tif,LF07_Dist.tif,LF08_Dist.tif,LF09_Dist.tif,
-                LF10_Dist.tif,LF11_Dist.tif,LF12_Dist.tif,LF13_Dist.tif,LF14_Dist.tif,LF15_Dist.tif,LF16_Dist.tif,LF17_Dist.tif,LF18_Dist.tif,LF19_Dist.tif,
-                LF20_Dist.tif,LF21_Dist.tif,LF22_Dist.tif,LF23_Dist.tif,LF24_Dist.tif)
-rm(LF99_Dist.tif)
-rm(LF00_Dist.tif);rm(LF01_Dist.tif);rm(LF02_Dist.tif);rm(LF03_Dist.tif);rm(LF04_Dist.tif);rm(LF05_Dist.tif);rm(LF06_Dist.tif);rm(LF07_Dist.tif);rm(LF08_Dist.tif);rm(LF09_Dist.tif)
-rm(LF10_Dist.tif);rm(LF11_Dist.tif);rm(LF12_Dist.tif);rm(LF13_Dist.tif);rm(LF14_Dist.tif);rm(LF15_Dist.tif);rm(LF16_Dist.tif);rm(LF17_Dist.tif);rm(LF18_Dist.tif);rm(LF19_Dist.tif)
-rm(LF20_Dist.tif);rm(LF21_Dist.tif);rm(LF22_Dist.tif);rm(LF23_Dist.tif);rm(LF24_Dist.tif)
+dist_stack <- Reduce(c, temp.list) ## combining the SpatRasters within the list into a single object
+rm(temp.list)
 
-dist_crop <- crop(dist_stack, WesternForests)
-gc()
-WF_dist <- mask(dist_crop, WesternForests)
-gc()
-plot(WF_dist[[1]])
+## instead of cropping to western Forests, I can crop to a buffered version of the fire polygon data, much less data
+Fires_Buff <- terra::aggregate(terra::buffer(WF_Fires, 60)) ## buffering by 60m and dissolved layers
 
-rm(dist_crop);rm(dist_stack)
-getwd()
-writeRaster(WF_dist, "WF_dist.tif", overwrite = TRUE)
+dist_stack <- terra::crop(dist_stack, Fires_Buff) ## cropping raw data (CONUS coverage at 30 m) to the fires of interest
+WF_dist <- terra::mask(dist_stack, Fires_Buff) ## breaking into two lines because doing crop and mask in the same line is too memory intensive
+gc() ## freeing unused memory 
+plot(WF_dist[[1]]) ## plotting the first layer of the stack to make sure it worked
+
+rm(dist_stack) ## removing pre-cropped/pre-masked data
+writeRaster(WF_dist, "./LandFire TIFs/WF_dist.tif", overwrite = TRUE) ## writing raster stack as a .tif file for easy access in the remainder of the code
+rm(WF_dist);gc()
 
 
 #### Adding NIFC Fire Line Data (2018-2024) ####  
-temp <- list.files(path = "./NIFC Lines/",pattern="*.shp") ## creating a vector that has all the files in the working directory with .shp extensions
-temp <- temp[1:7]
+temp <- list.files(path = "./NIFC Lines/",pattern="*.shp") ## creating a vector that has all the files in the working directory with .shp extensions (i.e., NIFC Fire Line Data)
+temp <- temp[1:7] ## keeping only the fire line data from the years of interest that have not been processed 
 
 for(i in 1:length(temp)) {
   path <- paste("./NIFC Lines/", temp[i], sep = "") ## specifying the relative pathway for assign
-  assign(temp[i], terra::vect(path)) ## assigning the shapefiles
-} ## loading in the shapefiles I want
-rm(i);rm(path);rm(temp)
+  assign(temp[i], terra::vect(path))
+} ## loading in the shapefiles of interest
+rm(i);rm(path) ## keeping the global enviroment clean
+gc()
 
+## assigning years to the individual shapefiles to keep track of after the rbind - too memory intensive to automate these steps
 EventLine2018.shp$year <- 2018
 EventLine2019.shp$year <- 2019
 EventLine2020.shp$year <- 2020
@@ -64,13 +146,13 @@ EventLine2022.shp$year <- 2022
 EventLine2023.shp$year <- 2023
 EventLine2024.shp$year <- 2024
 
-stacked_FL <- rbind(EventLine2018.shp,EventLine2019.shp,EventLine2020.shp,EventLine2021.shp,EventLine2022.shp,EventLine2023.shp,EventLine2024.shp)
-rm(EventLine2018.shp);rm(EventLine2019.shp);rm(EventLine2020.shp);rm(EventLine2021.shp);rm(EventLine2022.shp);rm(EventLine2023.shp);rm(EventLine2024.shp)
+stacked_FL <- rbind(EventLine2018.shp,EventLine2019.shp,EventLine2020.shp,EventLine2021.shp,EventLine2022.shp,EventLine2023.shp,EventLine2024.shp) ## rbind appears to be less memory intensive than do.call(rbind, list)
+rm(list = temp);rm(temp)
 gc()
 
-# W_FLs <- crop(stacked_FL,WesternStates)
-WF_FLs <- crop(stacked_FL,WesternForests)
-gc();rm(stacked_FL);rm(WesternForests)
+## instead of cropping to western Forests, I can crop to a buffered fire polygon dataset
+WF_FLs <- terra::crop(stacked_FL,Fires_Buff) ## this is can take over 12 hours in R. It is quicker to do in ArcPro
+gc();rm(stacked_FL)
 WF_FLs <- terra::unique(WF_FLs)
 gc()
 
@@ -98,164 +180,80 @@ rm(vec)
 gc()
 
 writeVector(WF_FLs, "./NIFC Lines/WF_FLs.shp", overwrite = TRUE)
+rm(WF_FLs);gc()
+rm(list=ls())
 
-#### Adding Fire Polygon data from MTBS ####
-FirePoly <- vect("./mtbs_perimeter_data/mtbs_perims.shp")
-FirePoly$Ig_Date <- as.numeric(substr(FirePoly$Ig_Date,1,4)) ## changing the date column to only contain the year
-FirePoly <- FirePoly[FirePoly$Ig_Date >= 2018,] ## subsetting only 2018 - 2024
-FirePoly$Incid_Name <- tolower(FirePoly$Incid_Name) ## making the incident names lowercase to remove potential duplicates
-FirePoly <- FirePoly[order(FirePoly$BurnBndAc, decreasing = TRUE),] ## sorting by size
-FirePoly <- FirePoly[!duplicated(paste(FirePoly$Incid_Name,FirePoly$Ig_Date,FirePoly$BurnBndAc)),] ## removing duplicates
-length(unique(paste(FirePoly$Incid_Name,FirePoly$Ig_Date,FirePoly$BurnBndAc))) ## 5918 unique events
-gc()
-
-FirePoly <- FirePoly[,c(colnames(values(FirePoly)) == "Incid_Name" | 
-                          colnames(values(FirePoly)) == "BurnBndAc" |
-                          colnames(values(FirePoly)) == "Ig_Date")]
-gc()
-
-## double checking each of the column names
-colnames(values(FirePoly))
-
-table(terra::is.valid(FirePoly)) ## checking the validity of geometery
-## have several thousand invalid topologies
-FirePoly <- terra::makeValid(FirePoly)
-table(terra::is.valid(FirePoly)) ## checking the validity of geometery
-## validated
-gc()
-
-# W_Fires <- crop(FirePoly,WesternStates)
-WF_Fires <- crop(FirePoly,WesternForests)
-gc();rm(FirePoly);rm(WesternForests)
-WF_Fires <- terra::unique(WF_Fires)
-gc()
-
-vec <- values(WF_Fires) ## currently at around 1k fires
-colnames(vec)
-table(vec$Ig_Date) ## years represented
-table(is.na(vec$BurnBndAc)) ## no NA values
-
-plot(WF_Fires)
-
-count_vertices <- function(v) {
-  n <- nrow(v)
-  vertex_counts <- numeric(n)
-  
-  for(i in 1:n) {
-    coords <- crds(v[i])
-    # Subtract 1 because last point repeats first point
-    vertex_counts[i] <- nrow(coords) - 1
-    progress <- i/n*100
-    if (progress %% 10 == 0) {
-      print(progress)
-    }
-  }
-  
-  return(vertex_counts)
-}
-
-# Remove triangles (3 vertices)
-n_vertices <- count_vertices(WF_Fires)
-WF_Fires <- WF_Fires[n_vertices > 3,]
-table(WF_Fires$Incid_Name)
-vec <- values(WF_Fires) ## after removing Rx we are at 1k fires
-plot(WF_Fires)
-gc()
-
-writeVector(WF_Fires,"./mtbs_perimeter_data/WF_Fires.shp", overwrite = TRUE)
-rm(WF_Fires);rm(vec);rm(i);rm(n_vertices);rm(count_vertices)
-gc()
-
-#### Mid-way point for extracting the disturbance history for fires and fire lines ####
-
+#### Extracting Treatment History for Fire Lines ####
 W_Fires <- vect("./mtbs_perimeter_data/WF_Fires.shp")
-W_FLs <- vect("./NIFC Lines/WF_FLs.shp")
+W_FLs <- vect("./NIFC Lines/WF_FLs.shp") ## still the subset from 10km buffed areas
 W_dist <- rast("./LandFire TIFs/WF_dist.tif")
 gc()
 
-
-#### Extracting Treatment History for Fire Lines ####
 vec <- seq(2018,2024, by = 1) ## change to reflect data range
 i <- 7 ## specifying i because for loop was too memory intensive
 ## a bit clunky but necessary for memory
 
 Engaged_Lines <- NA
-Treatment_Boundary <- NA
-Inside_Treatment <- NA
+Perimeter_Treatment <- NA # Treatment_Boundary
+BurnedOver_Treatment <- NA # Inside_Treatment
 
-# Pre-allocate list to store results
-Treatment_Boundary_list <- vector("list", length(vec))
-Inside_Treatment_list <- vector("list", length(vec))
+# Pre-allocate list to store results - more necessary if for loop is possible
 Engaged_Lines_list <- vector("list", length(vec) * 2)
-
-# Pre-filter data once
-W_Fires_filtered <- W_Fires[W_Fires$Ig_Date %in% vec, ]
-W_FLs_filtered <- W_FLs[W_FLs$year %in% vec, ]
+Perimeter_Treatment_list <- vector("list", length(vec))
+BurnedOver_Treatment_list <- vector("list", length(vec))
 
 # for(i in seq_along(vec)){ ## if you are using a computer with > 64 GB of RAM then this for loop will probably work
 year_i <- vec[i]
 
-# Filter for current year
-W_Fires_year <- W_Fires_filtered[W_Fires_filtered$Ig_Date == year_i, ]
-W_FLs_year <- W_FLs_filtered[W_FLs_filtered$year == year_i, ]
+# Filter for current year of loop (or object i if done manually)
+W_Fires_year <- W_Fires[W_Fires$Ig_Date == year_i, ] ## getting the year of interest, too much data to do it all at once
+W_FLs_year <- W_FLs[W_FLs$year == year_i, ]
 
-# Buffer operations
-W_Fires_add60 <- buffer(W_Fires_year, 60) 
-W_Fires_minus60 <- buffer(W_Fires_year, -60)
-W_Fires_EH <- erase(W_Fires_add60, W_Fires_minus60)
+# Buffer operations to get EH and EF areas
+W_Fires_add60 <- buffer(W_Fires_year, 60) ## outer most area of fire perimeter
+W_Fires_EF <- buffer(W_Fires_year, -60) ## this is the EF area
+W_Fires_EH <- erase(W_Fires_add60, W_Fires_EF) ## creates a ring w/ 60 m on either end of the fire perimter
 
-# Extract using exactextractr - returns a list of dataframes
+# Extract treatment history for fire perimeter
 unique_names <- unique(W_Fires_EH$Incid_Name)
-# geom_df <- geom(W_Fires_EH) ## Maybe no longer needed for the 2021 oddness?
-# attr_df <- as.data.frame(W_Fires_EH)
-# sf_object <- create_polygon_sf(geom_df, attr_df, crs = crs(W_Fires_EH))
-W_Fires_EH <- tidyterra::as_sf(W_Fires_EH) ## need to make into sf objects first
-W_Fires_EH <- sf::as_Spatial(W_Fires_EH$geometry) ## replace w/ sf_object if given trouble
-tmp_list <- exact_extract(W_dist, W_Fires_EH, include_cell = TRUE, progress = TRUE)
-
-# Combine list into single dataframe with ID column
+W_Fires_EH_sf <- tidyterra::as_sf(W_Fires_EH) ## need to make into sf objects first
+W_Fires_EH_sf <- sf::as_Spatial(W_Fires_EH_sf$geometry) ## replace w/ sf_object if given trouble
+tmp_list <- exact_extract(W_dist, W_Fires_EH_sf, include_cell = TRUE, progress = TRUE)
 tmp <- do.call(rbind, lapply(seq_along(tmp_list), function(j) {
   df <- tmp_list[[j]]
   df$ID <- j
   return(df)
-}))
-
-# Match fire names
-tmp$fire.names <- unique_names[tmp$ID]
-tmp$year <- year_i
-
-Treatment_Boundary_list[[i]] <- tmp
+})) # This combines the extracted list into a single dataframe, with the ID of each cell j
+tmp$fire.names <- unique_names[tmp$ID] ## matching the fire names based on the ID 
+tmp$year <- year_i ## adding the year
+Perimeter_Treatment_list[[i]] <- tmp ## more necessary when using for loop to store multiple extracted years. For now it is legacy code that works
 gc()
 
-# Extract using exactextractr - returns a list of dataframes
-unique_names <- unique(W_Fires_minus60$Incid_Name)
-W_Fires_minus60 <- tidyterra::as_sf(W_Fires_minus60) ## need to make into sf objects first
-ID_match <- sf::st_is_empty(W_Fires_minus60$geometry)
-W_Fires_minus60 <- W_Fires_minus60[!sf::st_is_empty(W_Fires_minus60$geometry),]
-W_Fires_minus60 <- sf::as_Spatial(W_Fires_minus60$geometry)
-tmp_list <- exact_extract(W_dist, W_Fires_minus60, include_cell = TRUE, progress = TRUE)
-
-# Combine list into single dataframe with ID column
+# Extract treatment history for burned over area
+unique_names <- unique(W_Fires_EF$Incid_Name) ## pulling out unique incident names
+W_Fires_EF_sf<- tidyterra::as_sf(W_Fires_EF) ## need to make into sf objects for exact_extract
+ID_match <- sf::st_is_empty(W_Fires_EF_sf$geometry) ## noting which geometeries are empty to avoid with fire name matching
+W_Fires_EF_sf <- W_Fires_EF_sf[!sf::st_is_empty(W_Fires_EF_sf$geometry),] ## removing empty geometeries (possible because of the way buffering was done)
+W_Fires_EF_sf <- sf::as_Spatial(W_Fires_EF_sf$geometry)
+tmp_list <- exact_extract(W_dist, W_Fires_EF_sf, include_cell = TRUE, progress = TRUE) ## using exact_extract for computational efficiency
 tmp <- do.call(rbind, lapply(seq_along(tmp_list), function(j) {
   df <- tmp_list[[j]]
   df$ID <- j
   return(df)
-}))
-
-# Match fire names
-tmp$fire.names <- unique_names[ID_match == FALSE][tmp$ID]
-tmp$year <- year_i
-
-Inside_Treatment_list[[i]] <- tmp
+})) ## do.call that compresses a list of each extracted fire into a dataframe
+tmp$fire.names <- unique_names[ID_match == FALSE][tmp$ID] ## need to include ID match because some empty geometeries were removed
+tmp$year <- year_i ## adding year
+BurnedOver_Treatment_list[[i]] <- tmp ##more necessary when using for loop to store multiple extracted years. For now it is legacy code that works
 gc()
 
-# Intersect operations
-W_Fires_minus60 <- vect(W_Fires_minus60)
-W_Fires_EH <- vect(W_Fires_EH)
-W_FLs_EH <- intersect(W_FLs_year, W_Fires_EH)
-W_FLs_EF <- intersect(W_FLs_year, W_Fires_minus60)
+## Determining which of the FLs were engaged
+# Intersect FLs with engaged held areas or engaged failed areas
+terraOptions(progress = 1)
+W_FLs_EH <- terra::intersect(W_FLs_year, W_Fires_EH)
+W_FLs_EF <- terra::intersect(W_FLs_year, W_Fires_EF)
+terraOptions(progress = 0)
 
-# make lines into small polygons
+# make lines into small polygons, needed for exact_extract
 W_FLs_EH <- buffer(W_FLs_EH, 1)
 W_FLs_EF <- buffer(W_FLs_EF, 1)
 
@@ -264,12 +262,11 @@ W_FLs_EF <- buffer(W_FLs_EF, 1)
 W_FLs_EH <- tidyterra::as_sf(W_FLs_EH) ## need to make into sf objects first
 W_FLs_EH <- sf::as_Spatial(W_FLs_EH$geometry)
 extracted_FLs_EH_list <- exact_extract(W_dist, W_FLs_EH, include_xy = TRUE, progress = TRUE)
-# extracted_FLs_EH_list <- terra::extract(W_dist, W_FLs_EH, xy = TRUE)
 
+## repeat for EF
 W_FLs_EF <- tidyterra::as_sf(W_FLs_EF) ## need to make into sf objects first
 W_FLs_EF <- sf::as_Spatial(W_FLs_EF$geometry)
 extracted_FLs_EF_list <- exact_extract(W_dist, W_FLs_EF, include_xy = TRUE, progress = TRUE)
-# extracted_FLs_EF_list <- terra::extract(W_dist, W_FLs_EF, xy = TRUE)
 
 # Combine into dataframes
 extracted_FLs_EH <- do.call(rbind, extracted_FLs_EH_list)
@@ -291,34 +288,47 @@ print(year_i)
 
 gc()
 
-Treatment_Boundary <- do.call(rbind, Treatment_Boundary_list);gc()
-Inside_Treatment <- do.call(rbind, Inside_Treatment_list);gc()
-Engaged_Lines <- do.call(rbind, Engaged_Lines_list);gc()
-
-table(Treatment_Boundary$year)
-length(unique(Treatment_Boundary$fire.names))
-
-table(Inside_Treatment$year)
-length(unique(Inside_Treatment$fire.names))
-
-# table(Engaged_Lines$year)
-# table(Engaged_Lines$Stat)
-
-rm(EF);rm(EH);rm(extracted_FLs_EF);rm(extracted_FLs_EH);rm(W_dist);rm(W_Fires)
-rm(W_Fires_add60);rm(W_Fires_EH);rm(W_Fires_minus60);rm(W_FLs);rm(W_FLs_EF);rm(W_FLs_EH)
-rm(i);rm(vec);rm(tmp);rm(unique_names);rm(year_i)
-rm(Engaged_Lines_list);rm(extracted_FLs_EF_list);rm(extracted_FLs_EH_list);rm(tmp_list)
-rm(Inside_Treatment_list);rm(Treatment_Boundary_list);rm(W_Fires_filtered);rm(W_Fires_year)
-rm(W_FLs_filtered);rm(W_FLs_year);rm(ID_match);rm(unique_ID)
+## remove excess layers
+rm(EF);rm(EH);rm(extracted_FLs_EF);rm(extracted_FLs_EH);rm(extracted_FLs_EF_list);rm(extracted_FLs_EH_list)
+rm(tmp);rm(tmp_list);rm(W_dist);rm(W_Fires);rm(W_Fires_add60);rm(W_Fires_EF);rm(W_Fires_EF_sf)
+rm(W_Fires_EH);rm(W_Fires_EH_sf);rm(W_FLs);rm(W_FLs_EF);rm(W_FLs_EH);rm(W_FLs_year)
+rm(i);rm(ID_match);rm(unique_names);rm(vec)
 gc()
 
+Perimeter_Treatment <- do.call(rbind, Perimeter_Treatment_list)
+rm(Perimeter_Treatment_list);gc()
+BurnedOver_Treatment <- do.call(rbind, BurnedOver_Treatment_list)
+rm(BurnedOver_Treatment_list);gc()
+Engaged_Lines <- do.call(rbind, Engaged_Lines_list)
+Engaged_Lines$ID <- c(1:nrow(Engaged_Lines))
+rm(Engaged_Lines_list);gc()
+W_Fires_year <- buffer(W_Fires_year, 60)
+Engaged_Lines_sp <- vect(Engaged_Lines, geom = c("x","y"), crs = crs(W_Fires_year))
+Engaged_Lines_sp <- terra::intersect(Engaged_Lines_sp,W_Fires_year)
+Engaged_Lines_sp <- values(Engaged_Lines_sp)
+Engaged_Lines_sp$x <- Engaged_Lines$x[match(Engaged_Lines_sp$ID, Engaged_Lines$ID)]
+Engaged_Lines_sp$y <- Engaged_Lines$y[match(Engaged_Lines_sp$ID, Engaged_Lines$ID)]
 
-write.csv(Engaged_Lines, "Engaged_Lines2024.csv")
+rm(Engaged_Lines);rm(W_Fires_year);gc()
+
+table(Perimeter_Treatment$year)
+length(unique(Perimeter_Treatment$fire.names))
+
+table(BurnedOver_Treatment$year)
+length(unique(BurnedOver_Treatment$fire.names))
+
+table(Engaged_Lines_sp$year)
+table(Engaged_Lines_sp$Stat)
+length(unique(Engaged_Lines_sp$Incid_Name)) ## fewer fires have fire lines
+
+write.csv(Engaged_Lines_sp, paste0("Engaged_Lines", year_i, ".csv"))
 gc()
-write.csv(Treatment_Boundary, "Treatment_Boundary2024.csv")
+write.csv(Perimeter_Treatment, paste0("Perimeter_Treatment", year_i, ".csv"))
 gc()
-write.csv(Inside_Treatment, "Inside_Treatment2024.csv")
+write.csv(BurnedOver_Treatment, paste0("BurnedOver_Treatment", year_i, ".csv"))
 gc()
+rm(list = ls())
+
 
 #### Start Here Post-Extractions ####
 #### Engaged Lines Treatment History Data Cleaning ####
@@ -354,7 +364,6 @@ head(EL21)
 head(EL22)
 head(EL23)
 head(EL24)
-
 
 Engaged_Lines <- rbind(EL18,EL19,EL20,EL21,EL22,EL23,EL24)
 rm(EL18);rm(EL19);rm(EL20);rm(EL21);rm(EL22);rm(EL23);rm(EL24)
@@ -895,7 +904,6 @@ for(i in 1:length(temp)){
 rm(list = temp)
 rm(temp);rm(X);rm(X_Fires);rm(i);rm(W_Fires)
 
-table(is.na(FireTrtHist$ecoregion)) ## 98 fires aren't in the ecoregions accounted for, after looking into it, they occur just outside of the ecoregions (don't have a 10km buffer on each shapefile)
 FireTrtHist <- FireTrtHist[complete.cases(FireTrtHist$ecoregion),]
 FireTrtHist$ecoregion <- as.factor(FireTrtHist$ecoregion)
 levels(FireTrtHist$ecoregion)
@@ -1649,7 +1657,7 @@ hist(training_set$stat,
      xlab = "Error Category")
 
 
-#### spliting data into ecoregion scales ####
+#### splitting engaged lines data into ecoregion scales ####
 ## determine which ecoregions I need
 temp <- list.files(path = "./Geographic Subsets/Ecoregions", pattern="*.shp") ## creating a vector that has all the files in the working directory with .xlsx extensions
 
@@ -1667,7 +1675,7 @@ Engaged_Lines <- vect(EL, geom = c("x","y"), crs = crs(SouthernRockies.shp))
 gc()
 
 obj.names <- gsub(".shp", "", temp)
-# Loop through each object# Lotempop through each object
+# Loop through each object
 for (i in 1:length(temp)) {
   # Get the object from the global environment
   X <- get(temp[i])
@@ -1690,6 +1698,7 @@ rm(list = ls())
 gc()
 
 #### Random Forests - Ecoregion Scales ####
+## NEED TO UPDATE DATA READ IN
 sr_Lines_df <- read.csv("D:/Outside Boundary/Engaged_Lines_sr.csv")
 table(sr_Lines_df$stat)
 (table(sr_Lines_df$stat)/nrow(sr_Lines_df))*100
@@ -1752,25 +1761,24 @@ trt2 <- sr_Lines_df[sr_Lines_df$trt == levels(sr_Lines_df$trt)[2], ]
 trt3 <- sr_Lines_df[sr_Lines_df$trt == levels(sr_Lines_df$trt)[3], ]
 trt4 <- sr_Lines_df[sr_Lines_df$trt == levels(sr_Lines_df$trt)[4], ]
 
-
 ## for loop for the random forest and summary data
 for(i in 1:n){
   set.seed(i)
-  trt1_sample <- trt1[sample(nrow(trt1), 5000, replace = FALSE), ]
+  trt1_sample <- trt1[sample(nrow(trt1), 5000, replace = TRUE), ]
   set.seed(i)
-  trt2_sample <- trt2[sample(nrow(trt2), 5000, replace = FALSE), ]
+  trt2_sample <- trt2[sample(nrow(trt2), 5000, replace = TRUE), ]
   set.seed(i)
-  trt3_sample <- trt3[sample(nrow(trt3), 5000, replace = TRUE), ] ## need to sample replace
+  trt3_sample <- trt3[sample(nrow(trt3), 5000, replace = TRUE), ]
   set.seed(i)
-  trt4_sample <- trt4[sample(nrow(trt4), 5000, replace = FALSE), ]
+  trt4_sample <- trt4[sample(nrow(trt4), 5000, replace = TRUE), ]
   dat_sub <- rbind(trt1_sample,trt2_sample,trt3_sample,trt4_sample)
   table(dat_sub$stat)
   level1 <- dat_sub[dat_sub$stat == levels(dat_sub$stat)[1], ]
   level2 <- dat_sub[dat_sub$stat == levels(dat_sub$stat)[2], ]
   set.seed(i)
-  EF_sample <- level1[sample(nrow(level1), 5000, replace = FALSE), ]
+  EF_sample <- level1[sample(nrow(level1), 5000, replace = TRUE), ]
   set.seed(i)
-  EH_sample <- level2[sample(nrow(level2), 5000, replace = FALSE), ]
+  EH_sample <- level2[sample(nrow(level2), 5000, replace = TRUE), ]
   dat_sub <- rbind(EF_sample, EH_sample)
   table(dat_sub$stat)
   table(dat_sub$trt)
@@ -1820,7 +1828,7 @@ for(i in 1:n){
   rf1.res[i,c(1:length(testing_set$stat))] <- predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2] - (as.numeric(testing_set$stat)-1)
   error1[i,] <- rf1$err.rate[,1] ## out of bag error
   rf.roc <- suppressMessages(roc(training_set$stat, rf1$votes[,2]))
-  AUC.val1_SR[i] <- as.numeric(auc(rf.roc))
+  AUC.val1[i] <- as.numeric(auc(rf.roc))
   
   ## second model predicting the residuals
   res4pred <- rf1.res[i,!is.na(rf1.res[i,])]
@@ -1832,7 +1840,18 @@ for(i in 1:n){
   dat_sub2$obs <- NULL
   dat_sub2$pred <- NULL
   
-  #### ADD BALANCING HERE
+  ## balancing dat_sub2 - requires upsampling
+  type1 <- dat_sub2[round(dat_sub2$stat, 0) == -1, ]
+  correct <- dat_sub2[round(dat_sub2$stat, 0) == 0, ]
+  type2 <- dat_sub2[round(dat_sub2$stat, 0) == 1, ]
+  
+  set.seed(i)
+  type1 <- type1[sample(nrow(type1), 1000, replace = TRUE), ]
+  set.seed(i)
+  correct <- correct[sample(nrow(correct), 1000, replace = TRUE), ]
+  set.seed(i)
+  type2 <- type2[sample(nrow(type2), 1000, replace = TRUE), ]
+  dat_sub2 <- rbind(type1,correct,type2)
   
   set.seed(i)
   vec <- order(dmat[sample(1:nrow(dat_sub2),1),]) ## getting rows in order of distance to random point generated
@@ -1863,8 +1882,8 @@ for(i in 1:n){
   error2[i,] <- rf2$mse
   training_set$bin.out <- round(training_set$stat,0)
   rf.roc <- suppressMessages(  multiclass.roc(training_set$bin.out, rf2$predicted))
-  AUC.val2_SR[i] <- as.numeric(auc(rf.roc))
-  r2_SR[i,] <- rf2$rsq
+  AUC.val2[i] <- as.numeric(auc(rf.roc))
+  r2[i,] <- rf2$rsq
   
   training_set <- as.data.frame(training_set)
   prop.rx <- partialPlot(rf2, training_set, x.var = prop.rx)
@@ -2136,464 +2155,7 @@ hist(round(training_set$stat, 0),
      las = 1,
      xlab = "Error Category")
 
-#### splitting rf into multiple - single fire scale ####
-# library(terra)
-# cam <- vect("D:/Outside Boundary/Geographic Subsets/CameronPeak.shp")
-# EL <- Engaged_Lines
-# Engaged_Lines <- vect(EL, geom = c("x","y"), crs = crs(cam))
-# cam_Lines <- crop(Engaged_Lines,cam)
-# cam_Lines_df <- as.data.frame(cam_Lines, geom = c("XY"))
-# write.csv(cam_Lines_df, "Engaged_Lines_CameronPeak.csv")
-
-cam_Lines_df <- read.csv("D:/Outside Boundary/Engaged_Lines_CameronPeak.csv")
-table(cam_Lines_df$stat)
-(table(cam_Lines_df$stat)/nrow(cam_Lines_df))*100
-(table(cam_Lines_df$year)/nrow(cam_Lines_df))*100
-(table(cam_Lines_df$trt)/nrow(cam_Lines_df))*100
-hist(cam_Lines_df$prop.rx[cam_Lines_df$prop.rx > 0])
-hist(cam_Lines_df$prop.thin[cam_Lines_df$prop.thin > 0])
-hist(cam_Lines_df$TS.rx[cam_Lines_df$TS.rx < 30])
-hist(cam_Lines_df$TS.thin[cam_Lines_df$TS.thin < 30])
-par(mfrow = c(1,1))
-
-prop.rx.x <- matrix(data = NA, nrow = n, ncol = 51)
-prop.rx.y <- matrix(data = NA, nrow = n, ncol = 51)
-
-prop.thin.x <- matrix(data = NA, nrow = n, ncol = 51)
-prop.thin.y <- matrix(data = NA, nrow = n, ncol = 51)
-
-TS.rx.x <- matrix(data = NA, nrow = n, ncol = 51)
-TS.rx.y <- matrix(data = NA, nrow = n, ncol = 51)
-
-TS.thin.x <- matrix(data = NA, nrow = n, ncol = 51)
-TS.thin.y <- matrix(data = NA, nrow = n, ncol = 51)
-
-rf1.res <- matrix(data = NA, nrow = n, ncol = 10000)
-rf2.res <- matrix(data = NA, nrow = n, ncol = 10000)
-
-y_hats1 <- matrix(data = NA, nrow = n, ncol = 10000)
-y_hats1.diff <- NA
-y_hats2 <- matrix(data = NA, nrow = n, ncol = 10000)
-y_hats2.diff <- NA
-
-varImp1.summary <- matrix(data = NA, nrow = 31, ncol = n)
-varImp1.names <- matrix(data = NA, nrow = 31, ncol = n)
-varImp2.summary <- matrix(data = NA, nrow = 5, ncol = n)
-varImp2.names <- matrix(data = NA, nrow = 5, ncol = n)
-
-balance1 <- NA
-balance2 <- NA
-error1 <- matrix(data = NA, nrow = n, ncol = 500) ## ncol = ntree
-error2 <- matrix(data = NA, nrow = n, ncol = 500) ## ncol = ntree
-r2_CP <- matrix(data = NA, nrow = n, ncol = 500)
-
-AUC.val1_CP <- NA
-AUC.val2_CP <- NA
-
-r <- rast("LandFire TIFs/WF_dist.tif")
-blank <- rast(ext(r), resolution=100, vals=NA) ## gonna expand this
-crs(blank) <- crs(r)
-
-str(cam_Lines_df)
-cam_Lines_df$X <- NULL
-cam_Lines_df$stat <- as.factor(cam_Lines_df$stat)
-cam_Lines_df$year <- as.factor(cam_Lines_df$year)
-cam_Lines_df$trt <- as.factor(cam_Lines_df$trt)
-cam_Lines_df$x <- as.numeric(cam_Lines_df$x)
-cam_Lines_df$y <- as.numeric(cam_Lines_df$y)
-
-trt1 <- cam_Lines_df[cam_Lines_df$trt == levels(cam_Lines_df$trt)[1], ]
-trt2 <- cam_Lines_df[cam_Lines_df$trt == levels(cam_Lines_df$trt)[2], ]
-trt3 <- cam_Lines_df[cam_Lines_df$trt == levels(cam_Lines_df$trt)[3], ]
-trt4 <- cam_Lines_df[cam_Lines_df$trt == levels(cam_Lines_df$trt)[4], ]
-
-
-## for loop for the random forest and summary data
-for(i in 1:n){
-  set.seed(i)
-  trt1_sample <- trt1[sample(nrow(trt1), 5000, replace = TRUE), ]
-  set.seed(i)
-  trt2_sample <- trt2[sample(nrow(trt2), 5000, replace = TRUE), ]
-  set.seed(i)
-  trt3_sample <- trt3[sample(nrow(trt3), 5000, replace = TRUE), ] ## need to sample replace
-  set.seed(i)
-  trt4_sample <- trt4[sample(nrow(trt4), 5000, replace = TRUE), ]
-  dat_sub <- rbind(trt1_sample,trt2_sample,trt3_sample,trt4_sample)
-  table(dat_sub$stat)
-  level1 <- dat_sub[dat_sub$stat == levels(dat_sub$stat)[1], ]
-  level2 <- dat_sub[dat_sub$stat == levels(dat_sub$stat)[2], ]
-  set.seed(i)
-  EF_sample <- level1[sample(nrow(level1), 5000, replace = TRUE), ]
-  set.seed(i)
-  EH_sample <- level2[sample(nrow(level2), 5000, replace = TRUE), ]
-  dat_sub <- rbind(EF_sample, EH_sample)
-  table(dat_sub$stat)
-  table(dat_sub$trt)
-  dat.sp <- vect(dat_sub, geom = c("x","y"))
-  dat.cell <- extract(blank, dat.sp, cell = TRUE)
-  dat_sub$cell <- dat.cell$cell
-  dat_sub <- dat_sub %>% group_by(cell) %>% sample_n(size=1) # sample one point per 100 x 100 m cell
-  dat_sub <- vect(dat_sub, geom = c("x","y"), crs = crs(blank))
-  dat_sub <- project(dat_sub, "EPSG:4326")
-  dmat <- as.matrix(dist(cbind(geom(dat_sub)[,4], geom(dat_sub)[,3]))) ## turning the coordinates of each plot into a distance matrix
-  dmat <- dmat *111139 ## degrees to meters (approximately)
-  eigen_res <- RSpectra::eigs_sym(as.matrix(dmat), k = num_eigenvectors)
-  dat_sub <- as.data.frame(dat_sub)
-  dat_sub <- cbind(dat_sub, eigen_res$vectors)
-  dat_sub$cell <- NULL
-  colnames(dat_sub)[8:(7+num_eigenvectors)] <- paste("vec",colnames(dat_sub)[8:(7+num_eigenvectors)],sep = "")
-  # dmat <- as.matrix(dist(cbind(dat_sub$y, dat_sub$x))) #
-  set.seed(i)
-  v1 <- sample(which(dat_sub$stat == "EH"), size = (0.75*length(which(dat_sub$stat == "EH"))))
-  set.seed(i)
-  v2 <- sample(which(dat_sub$stat == "EF"), size = (0.75*length(which(dat_sub$stat == "EF"))))
-  vec <- c(v1,v2)
-  # vec <- order(dmat[sample(1:nrow(dat_sub),1),]) ## getting rows in order of distance to random point generated
-  # test <- vec[c(1:(0.75*nrow(dat_sub)))]
-  
-  dat_sub1 <- dat_sub[,c(1,2,8:37)]
-  dat_sub2 <- dat_sub[,c(1,3:7)]
-  
-  training_set <- dat_sub1[vec,]
-  balance1[i] <- 1-length(which(training_set$stat == "EF"))/length(training_set$stat)
-  testing_set <- dat_sub1[-vec,]
-  set.seed(i)
-  train_index <- createDataPartition(y = dat_sub1$stat, p = 0.75, list = FALSE)
-  training_set <- dat_sub1[train_index,]
-  dat_sub2 <- dat_sub2[-vec,]
-  
-  set.seed(i)
-  rf1 <- randomForest(stat~.,
-                      data = training_set,
-                      ntree = 500,
-                      maxnodes = 75,
-                      maximize = TRUE,
-                      trControl = train_control,
-                      importance = TRUE,
-                      keep.forest = TRUE,
-                      keep.inbag = TRUE) ## making the rf object
-  y_hats1[i,1:nrow(testing_set)] <- predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2]
-  y_hats1.diff[i] <- mean(as.numeric(y_hats1[i,1:nrow(testing_set)]) - (as.numeric(testing_set$stat)-1))
-  varImp1.summary[,i] <- rf1$importance[,3] ## Mean decrease accuracy
-  varImp1.names[,i] <- rownames(rf1$importance)
-  rf1.res[i,c(1:length(testing_set$stat))] <- predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2] - (as.numeric(testing_set$stat)-1)
-  error1[i,] <- rf1$err.rate[,1] ## out of bag error
-  rf.roc <- suppressMessages(roc(training_set$stat, rf1$votes[,2]))
-  AUC.val1_CP[i] <- as.numeric(auc(rf.roc))
-  
-  ## second model predicting the residuals
-  res4pred <- rf1.res[i,!is.na(rf1.res[i,])]
-  length(res4pred)
-  
-  dat_sub2$obs <- as.numeric(dat_sub2$stat)-1
-  dat_sub2$pred <- as.numeric(predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2])
-  dat_sub2$stat <- as.numeric(res4pred)
-  dat_sub2$obs <- NULL
-  dat_sub2$pred <- NULL
-  
-  set.seed(i)
-  vec <- order(dmat[sample(1:nrow(dat_sub2),1),]) ## getting rows in order of distance to random point generated
-  vec <- vec[c(1:(0.75*nrow(dat_sub2)))]
-  
-  training_set <- dat_sub2[vec,]
-  balance2[i] <- mean(dat_sub2$stat)
-  testing_set <- dat_sub2[-vec,]
-  set.seed(i)
-  train_index <- createDataPartition(y = dat_sub2$stat, p = 0.75, list = FALSE)
-  training_set <- dat_sub2[train_index,]
-  
-  set.seed(i)
-  rf2 <- randomForest(stat~.,
-                      data = training_set,
-                      ntree = 500,
-                      maxnodes = 75,
-                      maximize = TRUE,
-                      trControl = train_control,
-                      importance = TRUE,
-                      keep.forest = TRUE,
-                      keep.inbag = TRUE) ## making the rf object
-  y_hats2[i,1:nrow(testing_set)] <- predict(object = rf2, newdata = testing_set[, -1])
-  y_hats2.diff[i] <- mean(as.numeric(y_hats2[i,1:nrow(testing_set)]) - as.numeric(testing_set$stat))
-  varImp2.summary[,i] <- rf2$importance[,1]
-  varImp2.names[,i] <- rownames(rf2$importance)
-  rf2.res[i,c(1:length(rf2$predicted))] <- as.numeric(rf2$predicted) - as.numeric(training_set$stat)
-  error2[i,] <- rf2$mse
-  training_set$bin.out <- round(training_set$stat,0)
-  rf.roc <- suppressMessages(  multiclass.roc(training_set$bin.out, rf2$predicted))
-  AUC.val2_CP[i] <- as.numeric(auc(rf.roc))
-  r2_CP[i,] <- rf2$rsq
-  
-  training_set <- as.data.frame(training_set)
-  prop.rx <- partialPlot(rf2, training_set, x.var = prop.rx)
-  prop.thin <- partialPlot(rf2, training_set, x.var = prop.thin)
-  TS.rx <- partialPlot(rf2, training_set, x.var = TS.rx)
-  TS.thin <- partialPlot(rf2, training_set, x.var = TS.thin)
-  
-  prop.rx.x[i,1:length(prop.rx$x)] <- prop.rx$x
-  prop.rx.y[i,1:length(prop.rx$y)] <- prop.rx$y
-  prop.thin.x[i,1:length(prop.thin$x)] <- prop.thin$x
-  prop.thin.y[i,1:length(prop.thin$y)] <- prop.thin$y
-  TS.rx.x[i,1:length(TS.rx$x)] <- TS.rx$x
-  TS.rx.y[i,1:length(TS.rx$y)] <- TS.rx$y
-  TS.thin.x[i,1:length(TS.thin$x)] <- TS.thin$x
-  TS.thin.y[i,1:length(TS.thin$y)] <- TS.thin$y
-  gc()
-  
-  progress <- i/n*100
-  if (progress %% 5 == 0) {
-    print(paste(progress, "% done", sep = ""))
-  }
-}
-
-## pred vs obs plot
-par(mfrow = c(1,2))
-# y_hats1.diff <- y_hats1.diff*100 ## converting to %
-max(y_hats1.diff);min(y_hats1.diff)
-plot(x = 1:length(y_hats1.diff), y = y_hats1.diff,
-     pch = 16,
-     xlab = "model run",
-     ylim = c(min(y_hats1.diff)-0.1,max(y_hats1.diff)+0.1),
-     las = 1,
-     main = "Space + Year",
-     ylab = "Average Predicted - Observed",
-     cex = 1) ## Difference in Predicted Probability vs.Observed Class
-round(mean(y_hats1.diff), digits = 3)
-abline(h = mean(y_hats1.diff), col="firebrick4", lty = 2)
-# text("topright", "Average difference = 6.84%") 
-
-# y_hats2.diff <- y_hats2.diff*100 ## converting to %
-max(y_hats2.diff);min(y_hats2.diff)
-plot(x = 1:length(y_hats2.diff), y = y_hats2.diff,
-     pch = 16,
-     xlab = "model run",
-     ylim = c(min(y_hats1.diff)-0.1,max(y_hats1.diff)+0.1),
-     las = 1,
-     main = "Treatments",
-     ylab = "Average Predicted - Observed",
-     cex = 1) ## predicted probability of residual - observed probability of residual (from rf1)
-round(mean(y_hats2.diff), digits = 3)
-abline(h = mean(y_hats2.diff), col="firebrick4", lty = 2)
-# text(x = 30, y = 50, "Average difference = 12.4%") 
-
-mean(balance1);min(balance1);max(balance1) ## balance of line status
-# [1] 0.7610189
-# [1] 0.7474227
-# [1] 0.7775446
-
-mean(balance2);min(balance2);max(balance2) ## average residual error from rf1 (per model run)
-# [1] 0.01013345
-# [1] -0.0140125
-# [1] 0.04282067
-
-error.mean <- apply(error1,2,mean)
-min(error1);max(error1)
-plot(error.mean, type = "n",
-     ylim = c(0,max(error1)+0.05),
-     las = 1,
-     xlab = "Tree",
-     main = "Space + Year",
-     ylab = "OOB Error")
-for(i in 1:n){
-  lines(error1[i,], col = rgb(0,0,0,alpha = 0.25))
-}
-lines(error.mean, type = "l", col = "firebrick", lty = 2, lwd= 2)
-mean(error.mean)*100 # 3.82504
-# text(x = 300, y = 0.18, "Average Error = __%")
-
-error.mean <- apply(error2,2,mean)
-min(error2);max(error2)
-plot(error.mean, type = "n",
-     ylim = c(0,max(error1)+0.05),
-     las = 1,
-     xlab = "Tree",
-     main = "Treatments",
-     ylab = "Mean Square Error")
-for(i in 1:n){
-  lines(error2[i,], col = rgb(0,0,0,alpha = 0.25))
-}
-lines(error.mean, type = "l", col = "firebrick", lty = 2, lwd= 2)
-mean(error.mean)*100 # 2.47091
-# text(x = 300, y = 0.18, "Average Error = __%")
-
-par(mfrow = c(1,1))
-plot(x = c(1,2),
-     y = c(0,1),
-     las = 1,
-     xaxt = "n",
-     xlab = "",
-     ylab = "AUC",
-     type = "n")
-axis(1, at = c(1.2,1.8), line = 1, tick = F, labels = c("Space + Year", "Treatments"), cex.axis = 1.5)
-points(x = c(1.2,1.8),
-       y = c(mean(AUC.val1_CP), mean(AUC.val2_CP)),
-       pch = 16)
-segments(x0 = 1.2, y0 = max(AUC.val1_CP), x1 = 1.2, y1 = min(AUC.val1_CP))
-segments(x0 = 1.8, y0 = max(AUC.val2_CP), x1 = 1.8, y1 = min(AUC.val2_CP))
-abline(h = 0.5, lty = 2)
-
-mean(AUC.val1_CP);min(AUC.val1_CP);max(AUC.val1_CP)
-# [1] 0.9829478
-# [1] 0.9728386
-# [1] 0.9926972
-
-mean(AUC.val2_CP);min(AUC.val2_CP);max(AUC.val2_CP)
-# [1] 0.8980859
-# [1] 0.5812789
-# [1] 0.9824561
-
-r2.mean <- apply(r2_CP,1,mean)
-mean(r2.mean);min(r2.mean);max(r2.mean)
-## between -06 - 5% of  variance explained (average -2%)
-# [1] -0.01551323
-# [1] -0.06556411
-# [1] 0.05114261
-
-## VarImp Plot 1
-varImp.plotting1 <- data.frame(name = c(varImp1.names[c(1),1],"spatial"),
-                               mean = c(mean(varImp1.summary[c(1),]),mean(varImp1.summary[c(2:31),])),
-                               min = c(min(varImp1.summary[c(1),]),min(varImp1.summary[c(2:31),])),
-                               max = c(max(varImp1.summary[c(1),]),max(varImp1.summary[c(2:31),])))
-varImp.plotting1 <- varImp.plotting1[order(varImp.plotting1$mean, decreasing = FALSE),]
-
-min(varImp.plotting1$min)
-max(varImp.plotting1$max)
-par(mfrow = c(1,2), oma = c(0,3,0,0))
-plot(varImp.plotting1$mean,
-     ylim = c(0,3),
-     xlim = c(0,max(varImp.plotting1$max)), ## max of varImp.plotting$max + a few
-     las = 1,
-     type = "n",
-     ylab = "",
-     yaxt = "n",
-     xlab = "Mean Decrease Accuracy")
-axis(2, at = c(1:2), labels = varImp.plotting1$name, cex.axis = 1, las = 2)
-points(x = varImp.plotting1$mean,y = 1:2, col = "black", cex = 1, pch = 16)
-segments(x0 = varImp.plotting1$min, y0 = 1:2, x1 = varImp.plotting1$max, y1 = 1:2, col = "black", lwd = 1.5)
-# abline(v = 10, lty = 2)
-
-## VarImp Plot 2
-varImp.plotting2 <- data.frame(name = c(varImp2.names[c(1:5),1]),
-                               mean = c(apply(varImp2.summary[c(1:5),],1,mean)),
-                               min = c(apply(varImp2.summary[c(1:5),],1,min)),
-                               max = c(apply(varImp2.summary[c(1:5),],1,max)))
-varImp.plotting2 <- varImp.plotting2[order(varImp.plotting2$mean, decreasing = FALSE),]
-
-min(varImp.plotting2$min)
-max(varImp.plotting2$max)
-# par(mfrow = c(1,1), oma = c(0,3,0,0))
-plot(varImp.plotting2$mean,
-     ylim = c(0,6),
-     xlim = c(0,max(varImp.plotting1$max)), ## max of varImp.plotting$max + a few
-     las = 1,
-     type = "n",
-     ylab = "",
-     yaxt = "n",
-     xlab = "Mean Decrease Accuracy")
-axis(2, at = c(1:5), labels = varImp.plotting2$name, cex.axis = 1, las = 2)
-points(x = varImp.plotting2$mean,y = 1:5, col = "black", cex = 1, pch = 16)
-segments(x0 = varImp.plotting2$min, y0 = 1:5, x1 = varImp.plotting2$max, y1 = 1:5, col = "black", lwd = 1.5)
-# abline(v = 10, lty = 2)
-
-## Partial Dependence Plots
-# FD <- Engaged_Lines
-# FD$LineInt <- as.integer(FD$LineStat)-1
-# FD$LineInt[FD$LineInt == 0] <- -0.25
-# FD$LineInt[FD$LineInt == 1] <- 1.25
-
-prop.rx.y <- 1-(1/(1+exp(-prop.rx.y)))*2
-prop.thin.y <- 1-(1/(1+exp(-prop.thin.y)))*2
-TS.rx.y <- 1-(1/(1+exp(-TS.rx.y)))*2
-TS.thin.y <- 1-(1/(1+exp(-TS.thin.y)))*2
-gc()
-
-par(mfrow = c(2,2))
-
-plot(prop.rx.x[1,], prop.rx.y[1,],
-     type = "l",
-     ylim = c(-1.25,1.25),
-     col = rgb(0,0,0,0.25),
-     main = "",
-     yaxt = "n",
-     cex.axis = 1.5,
-     cex.lab = 1.5,
-     las = 1,
-     xlab = "Proportion Rx Fire",
-     ylab = "")
-axis(2, at = c(-1,0,1), line = 1, las = 1,tick = T, labels = c("Type 1", "Correct", "Type 2"), cex.axis = 1.5)
-for(i in 2:n)(
-  lines(prop.rx.x[i,], prop.rx.y[i,], col = rgb(0,0,0,0.25))
-)
-prop.rx.x.mean <- apply(prop.rx.x,2,mean, na.rm = T)
-prop.rx.y.mean <- apply(prop.rx.y,2,mean, na.rm = T)
-lo <- loess(prop.rx.y.mean~prop.rx.x.mean)
-lines(y = predict(lo), x = prop.rx.x.mean[1:length(predict(lo))], col = "red", lwd = 2)
-
-plot(prop.thin.x[1,], prop.thin.y[1,],
-     type = "l",
-     ylim = c(-1.25,1.25),
-     col = rgb(0,0,0,0.25),
-     main = "",
-     yaxt = "n",
-     cex.axis = 1.5,
-     cex.lab = 1.5,
-     las = 1,
-     xlab = "Proportion Thinning",
-     ylab = "")
-axis(2, at = c(-1,0,1), line = 1, las = 1,tick = T, labels = c("Type 1", "Correct", "Type 2"), cex.axis = 1.5)
-for(i in 2:n)(
-  lines(prop.thin.x[i,], prop.thin.y[i,], col = rgb(0,0,0,0.25))
-)
-prop.thin.x.mean <- apply(prop.thin.x,2,mean, na.rm = T)
-prop.thin.y.mean <- apply(prop.thin.y,2,mean, na.rm = T)
-lo <- loess(prop.thin.y.mean~prop.thin.x.mean)
-lines(y = predict(lo), x = prop.thin.x.mean[1:length(predict(lo))], col = "red", lwd = 2)
-
-plot(TS.rx.x[1,], TS.rx.y[1,],
-     type = "l",
-     ylim = c(-1.25,1.25),
-     col = rgb(0,0,0,0.25),
-     main = "",
-     yaxt = "n",
-     cex.axis = 1.5,
-     cex.lab = 1.5,
-     las = 1,
-     xlab = "Time Since Rx Fire",
-     ylab = "")
-axis(2, at = c(-1,0,1), line = 1, las = 1,tick = T, labels = c("Type 1", "Correct", "Type 2"), cex.axis = 1.5)
-for(i in 2:n)(
-  lines(TS.rx.x[i,], TS.rx.y[i,], col = rgb(0,0,0,0.25))
-)
-TS.rx.x.mean <- apply(TS.rx.x,2,mean, na.rm = T)
-TS.rx.y.mean <- apply(TS.rx.y,2,mean, na.rm = T)
-lo <- loess(TS.rx.y.mean~TS.rx.x.mean)
-lines(y = predict(lo), x = TS.rx.x.mean[1:length(predict(lo))], col = "red", lwd = 2)
-
-plot(TS.thin.x[1,], TS.thin.y[1,],
-     type = "l",
-     ylim = c(-1.25,1.25),
-     col = rgb(0,0,0,0.25),
-     main = "",
-     yaxt = "n",
-     cex.axis = 1.5,
-     cex.lab = 1.5,
-     las = 1,
-     xlab = "Time Since Thinning",
-     ylab = "")
-axis(2, at = c(-1,0,1), line = 1, las = 1,tick = T, labels = c("Type 1", "Correct", "Type 2"), cex.axis = 1.5)
-for(i in 2:n)(
-  lines(TS.thin.x[i,], TS.thin.y[i,], col = rgb(0,0,0,0.25))
-)
-TS.thin.x.mean <- apply(TS.thin.x,2,mean, na.rm = T)
-TS.thin.y.mean <- apply(TS.thin.y,2,mean, na.rm = T)
-lo <- loess(TS.thin.y.mean~TS.thin.x.mean)
-lines(y = predict(lo), x = TS.thin.x.mean[1:length(predict(lo))], col = "red", lwd = 2)
-par(mfrow = c(1,1))
-hist(round(training_set$stat, 0),
-     main = "Example Training Data Cameron Peak",
-     las = 1,
-     xlab = "Error Category")
-
-#### Single AUC Plot all three scales ####
+####  AUC Plot Across Scales ####
 par(mfrow = c(1,1))
 plot(x = c(1,2),
      y = c(0,1),
@@ -2661,3 +2223,183 @@ segments(x0 = 1.6, y0 = max(r2.mean3), x1 = 1.6, y1 = min(r2.mean3), col = "mage
 abline(h = 0, lty = 2)
 legend("bottomright", legend = c("western USA", "Southern Rockies", "Cameron Pass"),
        col = c("goldenrod","navy","magenta3"), pch = 16, ncol = 1, bty = "n")
+
+#### Chi Sq. Test ####
+Engaged_Lines <- read.csv("Engaged_Lines_DisturbanceHistory.csv")
+colnames(Engaged_Lines)
+Engaged_Lines <- Engaged_Lines[,c(31,32,34:38,28,29)]
+head(Engaged_Lines)
+
+## lets see if I can add fire sizes
+Fires2DEL <- read.csv("Fires2DEL.csv")
+W_Fires <- vect("./mtbs_perimeter_data/WF_Fires.shp")
+Lines.spat <- vect(Engaged_Lines, geom=c("x","y"), crs = crs(W_Fires))
+Lines.spat <- tidyterra::as_sf(Lines.spat) ## need to make into sf objects first
+
+W_Fires <- tidyterra::as_sf(W_Fires) ## need to make into sf objects first
+gc()
+Lines_w_names <- st_join(Lines.spat, W_Fires, join = st_intersects)
+
+`%notin%` <- Negate(`%in%`)
+Engaged_Lines <- Lines_w_names[Lines_w_names$Incid_Name %notin% Fires2DEL$name,]
+rm(Lines_w_names);rm(Fires2DEL);rm(W_Fires);rm(`%notin%`);rm(Lines.spat)
+gc()
+
+table(Engaged_Lines$trt)
+table(Engaged_Lines$stat[Engaged_Lines$trt == "Thinning only"])
+table(Engaged_Lines$stat[Engaged_Lines$trt == "Thinning and Prescribed"])
+table(Engaged_Lines$stat[Engaged_Lines$trt == "Prescribed only"])
+table(Engaged_Lines$stat[Engaged_Lines$trt == "Neither"])
+
+mat <- matrix(c(nrow(Engaged_Lines[Engaged_Lines$stat == "EH" & Engaged_Lines$trt == "Thinning only",]),
+                nrow(Engaged_Lines[Engaged_Lines$stat == "EF" & Engaged_Lines$trt == "Thinning only",]),
+                nrow(Engaged_Lines[Engaged_Lines$stat == "EH" & Engaged_Lines$trt == "Prescribed only",]),
+                nrow(Engaged_Lines[Engaged_Lines$stat == "EF" & Engaged_Lines$trt == "Prescribed only",]),
+                nrow(Engaged_Lines[Engaged_Lines$stat == "EH" & Engaged_Lines$trt == "Thinning and Prescribed",]),
+                nrow(Engaged_Lines[Engaged_Lines$stat == "EF" & Engaged_Lines$trt == "Thinning and Prescribed",]),
+                nrow(Engaged_Lines[Engaged_Lines$stat == "EH" & Engaged_Lines$trt == "Neither",]),
+                nrow(Engaged_Lines[Engaged_Lines$stat == "EF" & Engaged_Lines$trt == "Neither",])),
+              nrow = 2, byrow = F)
+
+colnames(mat) <- c("Thin", "Burn", "ThinXBurn","No Trt")
+rownames(mat) <- c("EH", "EF")
+
+mosaicplot(mat,
+           main = "",
+           xlab = "Line Status",
+           ylab = "Treatment")
+
+chisq.test(mat)
+
+m2 <- mat[c(1,2),c(4,1)]
+mosaicplot(m2,
+           main = "",
+           xlab = "Line Status",
+           ylab = "Treatment")
+
+chisq.test(m2)
+fisher.test(m2) ## looks like thinned lines more likely to fail
+
+m3 <- mat[c(1,2),c(4,2)]
+mosaicplot(m3,
+           main = "",
+           xlab = "Line Status",
+           ylab = "Treatment")
+
+chisq.test(m3)
+fisher.test(m3) ## looks like burned lines more likely to fail
+
+m4 <- mat[c(1,2),c(4,3)]
+mosaicplot(m4,
+           main = "",
+           xlab = "Line Status",
+           ylab = "Treatment")
+
+chisq.test(m4)
+fisher.test(m4) ## looks like thinned x burned lines less likely to fail
+1/0.8139909 ## 20% increase in lines holding in TxB
+
+## splitting into small and larger fires
+hist(Engaged_Lines$BurnBndAc)
+smallfires <- Engaged_Lines[Engaged_Lines$BurnBndAc < 10000,]
+smallfires <- smallfires[complete.cases(smallfires$stat),]
+largefires <- Engaged_Lines[Engaged_Lines$BurnBndAc >= 10000,]
+largefires <- largefires[complete.cases(largefires$stat),]
+gc()
+
+## small fires
+mat <- matrix(c(nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Thinning only",]),
+                nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Thinning only",]),
+                nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Prescribed only",]),
+                nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Prescribed only",]),
+                nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Thinning and Prescribed",]),
+                nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Thinning and Prescribed",]),
+                nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Neither",]),
+                nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Neither",])),
+              nrow = 2, byrow = F)
+
+colnames(mat) <- c("Thin", "Burn", "ThinXBurn","No Trt")
+rownames(mat) <- c("EH", "EF")
+
+mosaicplot(mat,
+           main = "",
+           xlab = "Line Status",
+           ylab = "Treatment")
+
+chisq.test(mat)
+
+m2 <- mat[c(1,2),c(4,1)]
+mosaicplot(m2,
+           main = "",
+           xlab = "Line Status",
+           ylab = "Treatment")
+
+chisq.test(m2)
+fisher.test(m2) ## looks like thinned lines more likely to fail
+
+m3 <- mat[c(1,2),c(4,2)]
+mosaicplot(m3,
+           main = "",
+           xlab = "Line Status",
+           ylab = "Treatment")
+
+chisq.test(m3)
+fisher.test(m3) ## looks like burned lines more likely to fail
+
+m4 <- mat[c(1,2),c(4,3)]
+mosaicplot(m4,
+           main = "",
+           xlab = "Line Status",
+           ylab = "Treatment")
+
+chisq.test(m4)
+fisher.test(m4) ## looks like thinned x burned lines less likely to fail
+
+## large fires
+mat <- matrix(c(nrow(largefires[largefires$stat == "EH" & largefires$trt == "Thinning only",]),
+                nrow(largefires[largefires$stat == "EF" & largefires$trt == "Thinning only",]),
+                nrow(largefires[largefires$stat == "EH" & largefires$trt == "Prescribed only",]),
+                nrow(largefires[largefires$stat == "EF" & largefires$trt == "Prescribed only",]),
+                nrow(largefires[largefires$stat == "EH" & largefires$trt == "Thinning and Prescribed",]),
+                nrow(largefires[largefires$stat == "EF" & largefires$trt == "Thinning and Prescribed",]),
+                nrow(largefires[largefires$stat == "EH" & largefires$trt == "Neither",]),
+                nrow(largefires[largefires$stat == "EF" & largefires$trt == "Neither",])),
+              nrow = 2, byrow = F)
+
+colnames(mat) <- c("Thin", "Burn", "ThinXBurn","No Trt")
+rownames(mat) <- c("EH", "EF")
+
+mosaicplot(mat,
+           main = "",
+           xlab = "Line Status",
+           ylab = "Treatment")
+
+chisq.test(mat)
+
+m2 <- mat[c(1,2),c(4,1)]
+mosaicplot(m2,
+           main = "",
+           xlab = "Line Status",
+           ylab = "Treatment")
+
+chisq.test(m2)
+fisher.test(m2) ## looks like thinned lines more likely to fail
+
+m3 <- mat[c(1,2),c(4,2)]
+mosaicplot(m3,
+           main = "",
+           xlab = "Line Status",
+           ylab = "Treatment")
+
+chisq.test(m3)
+fisher.test(m3) ## looks like burned lines more likely to fail
+
+m4 <- mat[c(1,2),c(4,3)]
+mosaicplot(m4,
+           main = "",
+           xlab = "Line Status",
+           ylab = "Treatment")
+
+chisq.test(m4)
+fisher.test(m4) ## looks like thinned x burned lines less likely to fail
+
