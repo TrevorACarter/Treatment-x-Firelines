@@ -190,7 +190,7 @@ W_dist <- rast("./LandFire TIFs/WF_dist.tif")
 gc()
 
 vec <- seq(2018,2024, by = 1) ## change to reflect data range
-i <- 7 ## specifying i because for loop was too memory intensive
+i <- 4 ## specifying i because for loop was too memory intensive
 ## a bit clunky but necessary for memory
 
 Engaged_Lines <- NA
@@ -301,13 +301,17 @@ BurnedOver_Treatment <- do.call(rbind, BurnedOver_Treatment_list)
 rm(BurnedOver_Treatment_list);gc()
 Engaged_Lines <- do.call(rbind, Engaged_Lines_list)
 Engaged_Lines$ID <- c(1:nrow(Engaged_Lines))
-rm(Engaged_Lines_list);gc()
-W_Fires_year <- buffer(W_Fires_year, 60)
+# rm(Engaged_Lines_list);gc() # can remove after this is sorted!
+W_Fires_year <- buffer(W_Fires_year, 60) # buffering to extract fire information from extracted lines
 Engaged_Lines_sp <- vect(Engaged_Lines, geom = c("x","y"), crs = crs(W_Fires_year))
 Engaged_Lines_sp <- terra::intersect(Engaged_Lines_sp,W_Fires_year)
-Engaged_Lines_sp <- values(Engaged_Lines_sp)
-Engaged_Lines_sp$x <- Engaged_Lines$x[match(Engaged_Lines_sp$ID, Engaged_Lines$ID)]
+Engaged_Lines_sp <- values(Engaged_Lines_sp) ## converting values back to df
+Engaged_Lines_sp$x <- Engaged_Lines$x[match(Engaged_Lines_sp$ID, Engaged_Lines$ID)] ## getting the XY information for those that have fire information 
 Engaged_Lines_sp$y <- Engaged_Lines$y[match(Engaged_Lines_sp$ID, Engaged_Lines$ID)]
+
+## LandCover years '15 and '16 need to be converted to integers prior to saving
+Engaged_Lines_sp$LC15_Dist <- as.integer(Engaged_Lines_sp$LC15_Dist) 
+Engaged_Lines_sp$LC16_Dist <- as.integer(Engaged_Lines_sp$LC16_Dist)
 
 rm(Engaged_Lines);rm(W_Fires_year);gc()
 
@@ -328,7 +332,7 @@ gc()
 write.csv(BurnedOver_Treatment, paste0("BurnedOver_Treatment", year_i, ".csv"))
 gc()
 rm(list = ls())
-
+## still need 3, 4
 
 #### Start Here Post-Extractions ####
 #### Engaged Lines Treatment History Data Cleaning ####
@@ -369,6 +373,9 @@ Engaged_Lines <- rbind(EL18,EL19,EL20,EL21,EL22,EL23,EL24)
 rm(EL18);rm(EL19);rm(EL20);rm(EL21);rm(EL22);rm(EL23);rm(EL24)
 
 table(D_csv$DIST_TYPE)
+
+### DOUBLE CHECK 1999 is at the beginning of the sequence!!
+
 
 colnames(Engaged_Lines) <- c("1999","2000","2001","2002","2003","2004","2005","2006","2007","2008","2009","2010","2011","2012","2013","2014","2015","2016","2017","2018","2019","2020","2021","2022","2023","2024","x","y", "cov_frac","stat","year")
 head(Engaged_Lines)
