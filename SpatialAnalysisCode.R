@@ -332,7 +332,7 @@ gc()
 write.csv(BurnedOver_Treatment, paste0("BurnedOver_Treatment", year_i, ".csv"))
 gc()
 rm(list = ls())
-## still need 3, 4
+
 
 #### Start Here Post-Extractions ####
 #### Engaged Lines Treatment History Data Cleaning ####
@@ -374,16 +374,18 @@ rm(EL18);rm(EL19);rm(EL20);rm(EL21);rm(EL22);rm(EL23);rm(EL24)
 
 table(D_csv$DIST_TYPE)
 
-### DOUBLE CHECK 1999 is at the beginning of the sequence!!
+### DOUBLE CHECK whether 1999 is at the beginning of the sequence!
 
-
-colnames(Engaged_Lines) <- c("1999","2000","2001","2002","2003","2004","2005","2006","2007","2008","2009","2010","2011","2012","2013","2014","2015","2016","2017","2018","2019","2020","2021","2022","2023","2024","x","y", "cov_frac","stat","year")
 head(Engaged_Lines)
+colnames(Engaged_Lines) <- c("2000","2001","2002","2003","2004","2005","2006","2007","2008","2009","2010","2011","2012","2013","2014","2015","2016","2017","2018","2019","2020","2021","2022","2023","2024","1999","cov_frac","stat","year","ID","Incid_Name","BurnAcre","Ig_Date","x","y")
+head(Engaged_Lines)
+colnames(Engaged_Lines)[c(26,1:25,34:35,27:29,31:32)]
+Engaged_Lines <- Engaged_Lines[,c(26,1:25,34:35,27:29,31:32)]
 
 write.csv(Engaged_Lines, "Engaged_Lines.csv")
 
 
-vec <- ncol(Engaged_Lines[,c(1:26)]) ## need to change the number of columns
+vec <- ncol(Engaged_Lines[,c(1:26)]) ## picking out years that were extracted
 ## use a master csv that matches the year of dist to find the appropriate code for that year.
 for(i in 1:vec){
   tmp <- D_csv[D_csv$DIST_YEAR == as.numeric(colnames(Engaged_Lines[i])),]
@@ -396,14 +398,14 @@ Engaged_Lines$history <- apply(Engaged_Lines, 1, function(row) {
   stringr::str_flatten(row[1:26][valid_cols], collapse = ", ", na.rm = TRUE)
 })
 
-table(Engaged_Lines$history)
+table(Engaged_Lines$history) ## many many options, will need to make choices to simplify
 table(Engaged_Lines$stat)
 # EF      EH 
-# 2211528 3688526 
+# 2223287  3663156  
 nrow(Engaged_Lines[Engaged_Lines$stat == "EF",])/nrow(Engaged_Lines)
-## 0.3259 (proportion of failed lines)
+## 0.3776962 (proportion of failed lines)
 
-length(unique(Engaged_Lines$history)) ## 2393 unique disturbance histories
+length(unique(Engaged_Lines$history)) ## 2918 unique disturbance histories
 Engaged_Lines$trt <- ifelse(grepl("Thinning", Engaged_Lines$history) & grepl("Prescribed", Engaged_Lines$history),
                       "Thinning and Prescribed",
                       ifelse(grepl("Thinning", Engaged_Lines$history) & !grepl("Prescribed", Engaged_Lines$history),
@@ -445,13 +447,13 @@ write.csv(Engaged_Lines,"Engaged_Lines_DisturbanceHistory.csv")
 #### Fire Perimeter Data ####
 D_csv <- read.csv("./LandFire csvs/LF_total_dist.csv")
 
-TB18 <- read.csv("Treatment_Boundary2018.csv")
-TB19 <- read.csv("Treatment_Boundary2019.csv")
-TB20 <- read.csv("Treatment_Boundary2020.csv")
-TB21 <- read.csv("Treatment_Boundary2021.csv")
-TB22 <- read.csv("Treatment_Boundary2022.csv")
-TB23 <- read.csv("Treatment_Boundary2023.csv")
-TB24 <- read.csv("Treatment_Boundary2024.csv")
+TB18 <- read.csv("Perimeter_Treatment2018.csv")
+TB19 <- read.csv("Perimeter_Treatment2019.csv")
+TB20 <- read.csv("Perimeter_Treatment2020.csv")
+TB21 <- read.csv("Perimeter_Treatment2021.csv")
+TB22 <- read.csv("Perimeter_Treatment2022.csv")
+TB23 <- read.csv("Perimeter_Treatment2023.csv")
+TB24 <- read.csv("Perimeter_Treatment2024.csv")
 
 head(TB18)
 table(TB18$fire.names)
@@ -481,7 +483,7 @@ rm(TB18);rm(TB19);rm(TB20);rm(TB21);rm(TB22);rm(TB23);rm(TB24)
 head(trt);gc()
 
 colnames(trt)
-trt <- trt[,c(1:26,30,31)]
+trt <- trt[,c(26,1:25,30,31)]
 colnames(trt) <- c("1999","2000","2001","2002","2003","2004","2005","2006","2007","2008","2009","2010","2011","2012","2013","2014","2015","2016","2017","2018","2019","2020","2021","2022","2023","2024","fire.name","year")
 
 vec <- ncol(trt[,c(1:26)]) ## need to change the number of columns
@@ -501,8 +503,8 @@ trt$history <- apply(trt, 1, function(row) {
 
 gc()
 
-length(unique(trt$history)) ## 3329 unique disturbance histories
-length(unique(trt$fire.name)) ## 952 unique fires 
+length(unique(trt$history)) ## 3367 unique disturbance histories
+length(unique(trt$fire.name)) ## 945 unique fires 
 
 trt$trt <- ifelse(grepl("Thinning", trt$history) & grepl("Prescribed", trt$history),
                             "Both",
@@ -512,6 +514,7 @@ trt$trt <- ifelse(grepl("Thinning", trt$history) & grepl("Prescribed", trt$histo
                                           "Prescribed",
                                           "Neither")))
 gc()
+
 table(trt$trt)
 trt$thin.pa <- stringr::str_count(trt$trt, "Thinning")
 trt$n.pa <- stringr::str_count(trt$trt, "Neither")
@@ -522,15 +525,15 @@ fire.perimeter <- aggregate(cbind(thin.pa, rx.pa, b.pa, n.pa) ~ fire.name + year
 # apply(fire.perimeter[3:6], 2, sum) ## roughly the same but not identical
 gc()
 rm(trt);rm(tmp)
-write.csv(fire.perimeter, "Treatment_Boundary.csv")
-
+write.csv(fire.perimeter, "Perimeter_Treatments.csv")
+rm(i);rm(vec);rm(fire.perimeter)
 
 #### Inside Fire Data ####
 D_csv <- read.csv("./LandFire csvs/LF_total_dist.csv")
 
-IT18 <- read.csv("Inside_Treatment2018.csv")
+IT18 <- read.csv("BurnedOver_Treatment2018.csv")
 colnames(IT18)
-trt <- IT18[,c(2:27,31,32)]
+trt <- IT18[,c(27,2:26,31,32)]
 colnames(trt) <- c("1999","2000","2001","2002","2003","2004","2005","2006","2007","2008","2009","2010","2011","2012","2013","2014","2015","2016","2017","2018","2019","2020","2021","2022","2023","2024","fire.name","year")
 rm(IT18);gc()
 
@@ -570,10 +573,11 @@ trt$b.pa <- stringr::str_count(trt$trt, "Both")
 gc()
 IT18_summary <- aggregate(cbind(thin.pa, rx.pa, b.pa, n.pa) ~ fire.name + year, trt, FUN = sum) 
 rm(trt)
+gc()
 
-IT19 <- read.csv("Inside_Treatment2019.csv")
+IT19 <- read.csv("BurnedOver_Treatment2019.csv")
 colnames(IT19)
-trt <- IT19[,c(2:27,31,32)]
+trt <- IT19[,c(27,2:26,31,32)]
 colnames(trt) <- c("1999","2000","2001","2002","2003","2004","2005","2006","2007","2008","2009","2010","2011","2012","2013","2014","2015","2016","2017","2018","2019","2020","2021","2022","2023","2024","fire.name","year")
 rm(IT19);gc()
 
@@ -613,10 +617,11 @@ trt$b.pa <- stringr::str_count(trt$trt, "Both")
 gc()
 IT19_summary <- aggregate(cbind(thin.pa, rx.pa, b.pa, n.pa) ~ fire.name + year, trt, FUN = sum) 
 rm(trt)
+gc()
 
-IT20 <- read.csv("Inside_Treatment2020.csv")
+IT20 <- read.csv("BurnedOver_Treatment2020.csv")
 colnames(IT20)
-trt <- IT20[,c(2:27,31,32)]
+trt <- IT20[,c(27,2:26,31,32)]
 colnames(trt) <- c("1999","2000","2001","2002","2003","2004","2005","2006","2007","2008","2009","2010","2011","2012","2013","2014","2015","2016","2017","2018","2019","2020","2021","2022","2023","2024","fire.name","year")
 rm(IT20);gc()
 
@@ -656,10 +661,11 @@ trt$b.pa <- stringr::str_count(trt$trt, "Both")
 gc()
 IT20_summary <- aggregate(cbind(thin.pa, rx.pa, b.pa, n.pa) ~ fire.name + year, trt, FUN = sum) 
 rm(trt)
+gc()
 
-IT21 <- read.csv("Inside_Treatment2021.csv")
+IT21 <- read.csv("BurnedOver_Treatment2021.csv")
 colnames(IT21)
-trt <- IT21[,c(2:27,31,32)]
+trt <- IT21[,c(27,2:26,31,32)]
 colnames(trt) <- c("1999","2000","2001","2002","2003","2004","2005","2006","2007","2008","2009","2010","2011","2012","2013","2014","2015","2016","2017","2018","2019","2020","2021","2022","2023","2024","fire.name","year")
 rm(IT21);gc()
 
@@ -699,10 +705,11 @@ trt$b.pa <- stringr::str_count(trt$trt, "Both")
 gc()
 IT21_summary <- aggregate(cbind(thin.pa, rx.pa, b.pa, n.pa) ~ fire.name + year, trt, FUN = sum) 
 rm(trt)
+gc()
 
-IT22 <- read.csv("Inside_Treatment2022.csv")
+IT22 <- read.csv("BurnedOver_Treatment2022.csv")
 colnames(IT22)
-trt <- IT22[,c(2:27,31,32)]
+trt <- IT22[,c(27,2:26,31,32)]
 colnames(trt) <- c("1999","2000","2001","2002","2003","2004","2005","2006","2007","2008","2009","2010","2011","2012","2013","2014","2015","2016","2017","2018","2019","2020","2021","2022","2023","2024","fire.name","year")
 rm(IT22);gc()
 
@@ -742,10 +749,11 @@ trt$b.pa <- stringr::str_count(trt$trt, "Both")
 gc()
 IT22_summary <- aggregate(cbind(thin.pa, rx.pa, b.pa, n.pa) ~ fire.name + year, trt, FUN = sum) 
 rm(trt)
+gc()
 
-IT23 <- read.csv("Inside_Treatment2023.csv")
+IT23 <- read.csv("BurnedOver_Treatment2023.csv")
 colnames(IT23)
-trt <- IT23[,c(2:27,31,32)]
+trt <- IT23[,c(27,2:26,31,32)]
 colnames(trt) <- c("1999","2000","2001","2002","2003","2004","2005","2006","2007","2008","2009","2010","2011","2012","2013","2014","2015","2016","2017","2018","2019","2020","2021","2022","2023","2024","fire.name","year")
 rm(IT23);gc()
 
@@ -785,10 +793,11 @@ trt$b.pa <- stringr::str_count(trt$trt, "Both")
 gc()
 IT23_summary <- aggregate(cbind(thin.pa, rx.pa, b.pa, n.pa) ~ fire.name + year, trt, FUN = sum) 
 rm(trt)
+gc()
 
-IT24 <- read.csv("Inside_Treatment2024.csv")
+IT24 <- read.csv("BurnedOver_Treatment2024.csv")
 colnames(IT24)
-trt <- IT24[,c(2:27,31,32)]
+trt <- IT24[,c(27,2:26,31,32)]
 colnames(trt) <- c("1999","2000","2001","2002","2003","2004","2005","2006","2007","2008","2009","2010","2011","2012","2013","2014","2015","2016","2017","2018","2019","2020","2021","2022","2023","2024","fire.name","year")
 rm(IT24);gc()
 
@@ -828,58 +837,60 @@ trt$b.pa <- stringr::str_count(trt$trt, "Both")
 gc()
 IT24_summary <- aggregate(cbind(thin.pa, rx.pa, b.pa, n.pa) ~ fire.name + year, trt, FUN = sum) 
 rm(trt)
-
+gc()
 
 Inside_Treatment <- rbind(IT18_summary,IT19_summary,IT20_summary,IT21_summary,IT22_summary,IT23_summary,IT24_summary)
 gc()
 rm(IT18_summary);rm(IT19_summary);rm(IT20_summary);rm(IT21_summary);rm(IT22_summary);rm(IT23_summary);rm(IT24_summary)
 gc()
 
-write.csv(Inside_Treatment, "Inside_Treatment.csv")
+write.csv(Inside_Treatment, "BurnedOver_Treatments.csv")
+
 
 #### Fire Perimeter Effects ####
-IT <- read.csv("Inside_Treatment.csv")
-TB <- read.csv("Treatment_Boundary.csv")
+Inside <- read.csv("BurnedOver_Treatments.csv")
+Perimeter <- read.csv("Perimeter_Treatments.csv")
 
-head(IT)
-length(unique(IT$fire.name))
-length(unique(TB$fire.name))
+head(Inside)
+length(unique(Inside$fire.name))
+length(unique(Perimeter$fire.name)) ## only one fire difference
 
-IT$tot <- apply(IT[,c(4:7)],1,sum)
-IT$thin.pr <- IT$thin.pa/IT$tot
-IT$rx.pr <- IT$rx.pa/IT$tot
-IT$b.pr <- IT$b.pa/IT$tot
-IT$n.pr <- IT$n.pa/IT$tot
-IT$fire.name <- tolower(gsub("[[:punct:][:space:]]", "", IT$fire.name))
-IT$match <- paste(IT$fire.name, IT$year, sep = " ")
+Inside$tot <- apply(Inside[,c(4:7)],1,sum)
+Inside$thin.pr <- Inside$thin.pa/Inside$tot
+Inside$rx.pr <- Inside$rx.pa/Inside$tot
+Inside$b.pr <- Inside$b.pa/Inside$tot
+Inside$n.pr <- Inside$n.pa/Inside$tot
+Inside$fire.name <- tolower(gsub("[[:punct:][:space:]]", "", Inside$fire.name))
+Inside$match <- paste(Inside$fire.name, Inside$year, sep = " ")
 
-TB$tot <- apply(TB[,c(4:7)],1,sum)
-TB$thin.pr <- TB$thin.pa/TB$tot
-TB$rx.pr <- TB$rx.pa/TB$tot
-TB$b.pr <- TB$b.pa/TB$tot
-TB$n.pr <- TB$n.pa/TB$tot
-TB$fire.name <- tolower(gsub("[[:punct:][:space:]]", "", TB$fire.name))
-TB$match <- paste(TB$fire.name, TB$year, sep = " ")
+Perimeter$tot <- apply(Perimeter[,c(4:7)],1,sum)
+Perimeter$thin.pr <- Perimeter$thin.pa/Perimeter$tot
+Perimeter$rx.pr <- Perimeter$rx.pa/Perimeter$tot
+Perimeter$b.pr <- Perimeter$b.pa/Perimeter$tot
+Perimeter$n.pr <- Perimeter$n.pa/Perimeter$tot
+Perimeter$fire.name <- tolower(gsub("[[:punct:][:space:]]", "", Perimeter$fire.name))
+Perimeter$match <- paste(Perimeter$fire.name, Perimeter$year, sep = " ")
 
-TB.pr <- TB[match(TB$match, IT$match),c(13, 8:12)]
-IT.pr <- IT[match(TB$match, IT$match),c(13, 8:12)]
+Perimeter.pr <- Perimeter[match(Perimeter$match, Inside$match),c(13, 8:12)]
+Inside.pr <- Inside[match(Perimeter$match, Inside$match),c(13, 8:12)]
 
-TB.pr <- TB.pr[complete.cases(TB.pr),]
-IT.pr <- IT.pr[complete.cases(IT.pr),] ## 1004 observations
+Perimeter.pr <- Perimeter.pr[complete.cases(Perimeter.pr),] ## 997 observations
+Inside.pr <- Inside.pr[complete.cases(Inside.pr),] ## 998 observations
+Inside.pr <- Inside.pr[Inside.pr$name %in% Perimeter.pr$name,] ## removing the non-overlapping instance
 
-colnames(TB.pr) <- c("name","TB.tot", "TB.thin", "TB.rx", "TB.b", "TB.n")
-colnames(IT.pr) <- c("name", "IT.tot", "IT.thin", "IT.rx", "IT.b", "IT.n")
+colnames(Perimeter.pr) <- c("name","Perim.tot", "Perim.thin", "Perim.rx", "Perim.b", "Perim.n")
+colnames(Inside.pr) <- c("name", "Inside.tot", "Inside.thin", "Inside.rx", "Inside.b", "Inside.n")
 
-FireTrtHist <- cbind(TB.pr,IT.pr[,c(2:6)])
-rm(IT);rm(TB);rm(IT.pr);rm(TB.pr)
+FireTrtHist <- cbind(Perimeter.pr,Inside.pr[,c(2:6)])
+rm(Inside);rm(Perimeter);rm(Inside.pr);rm(Perimeter.pr)
 
 FireTrtHist$year <- stringr::str_split_fixed(FireTrtHist$name, " ", n = 2)[,2]
 FireTrtHist$name <- stringr::str_split_fixed(FireTrtHist$name, " ", n = 2)[,1]
-FireTrtHist$tot <- FireTrtHist$TB.tot + FireTrtHist$IT.tot
-FireTrtHist$thin.odds <- (FireTrtHist$TB.thin - FireTrtHist$IT.thin)/(FireTrtHist$TB.thin + FireTrtHist$IT.thin)
-FireTrtHist$rx.odds <- (FireTrtHist$TB.rx - FireTrtHist$IT.rx)/(FireTrtHist$TB.rx + FireTrtHist$IT.rx)
-FireTrtHist$b.odds <- (FireTrtHist$TB.b - FireTrtHist$IT.b)/(FireTrtHist$TB.b + FireTrtHist$IT.b)
-FireTrtHist$n.odds <- (FireTrtHist$TB.n - FireTrtHist$IT.n)/(FireTrtHist$TB.n + FireTrtHist$IT.n)
+FireTrtHist$tot <- FireTrtHist$Perim.tot + FireTrtHist$Inside.tot
+FireTrtHist$thin.odds <- (FireTrtHist$Perim.thin - FireTrtHist$Inside.thin)/(FireTrtHist$Perim.thin + FireTrtHist$Inside.thin)
+FireTrtHist$rx.odds <- (FireTrtHist$Perim.rx - FireTrtHist$Inside.rx)/(FireTrtHist$Perim.rx + FireTrtHist$Inside.rx)
+FireTrtHist$b.odds <- (FireTrtHist$Perim.b - FireTrtHist$Inside.b)/(FireTrtHist$Perim.b + FireTrtHist$Inside.b)
+FireTrtHist$n.odds <- (FireTrtHist$Perim.n - FireTrtHist$Inside.n)/(FireTrtHist$Perim.n + FireTrtHist$Inside.n)
 
 FireTrtHist <- FireTrtHist[,c(1,c(12:17))]
 FireTrtHist <- FireTrtHist[order(FireTrtHist$year, FireTrtHist$tot,FireTrtHist$name),]
@@ -891,7 +902,6 @@ hist(FireTrtHist$tot[FireTrtHist$tot < 10000])
 W_Fires <- vect("./mtbs_perimeter_data/WF_Fires.shp")
 W_Fires$Incid_Name <- tolower(gsub("[[:punct:][:space:]]", "", W_Fires$Incid_Name))
 temp <- list.files(path = "./Geographic Subsets/Ecoregions", pattern="*.shp")
-temp <- temp[-9] ## removing PugetLowlands (no fires within ecoregion)
 
 for(i in 1:length(temp)){
   path <- paste("./Geographic Subsets/Ecoregions/", temp[i], sep = "")
@@ -904,12 +914,15 @@ FireTrtHist$ecoregion <- NA
 
 for(i in 1:length(temp)){
   X <- get(temp[i])
+  # X <- terra::buffer(X, 15000) ## buffering the ecoregions, causes some problems with overlaps
   X_Fires <- crop(W_Fires,X)
   X_Fires <- values(X_Fires)
   FireTrtHist$ecoregion[FireTrtHist$name %in% X_Fires$Incid_Name] <- obj.names[i]
 }
 rm(list = temp)
 rm(temp);rm(X);rm(X_Fires);rm(i);rm(W_Fires)
+
+Na_Fires <- FireTrtHist[is.na(FireTrtHist$ecoregion),] ## these are smaller fires that are w/i 15km of ecoregion boundary but not within the 'core' area
 
 FireTrtHist <- FireTrtHist[complete.cases(FireTrtHist$ecoregion),]
 FireTrtHist$ecoregion <- as.factor(FireTrtHist$ecoregion)
@@ -920,123 +933,217 @@ megafires <- FireTrtHist[FireTrtHist$tot >= 10000,]
 
 se <- function(x, na.rm = FALSE){sd(x, na.rm = na.rm)/sqrt(length(!is.na(x)))} ## creating a function for standard error
 
+length(unique(FireTrtHist$ecoregion))
 ## small fires
 df <- data.frame(per.eff = c(smallfires$thin.odds,smallfires$rx.odds,smallfires$b.odds,smallfires$n.odds),
                  trt = c(rep("thin", nrow(smallfires)), rep("rx", nrow(smallfires)), rep("b", nrow(smallfires)), rep("n",nrow(smallfires))),
                  ecoregion = rep(smallfires$ecoregion, 4))
 
-par(mfrow = c(2,1))
-pal <- viridis(12, alpha = 0.5)
-plot(x = c(0:5),
+pal1 <- turbo(12, alpha = 0.2)
+pal2 <- turbo(12, alpha = 1)
+
+par(mfrow = c(2,2),oma = c(3, 0, 0, 0))
+
+## Thinning
+plot(x = c(0:14),
      ylim = c(-1.1,1.1),
      las = 1,
+     main = "Thinning",
      cex.axis = 1.5,
      ylab = "",
      type = "n",
      xaxt = "n",
-     xlab = "") ## disturbance history
-axis(1, at = c(2:5), line = 1, tick = F, labels = c("Thin", "Rx", "Both", "Neither"), cex.axis = 1.5)
+     xlab = "") ## ecoregion
+text(x = 1:length(levels(FireTrtHist$ecoregion)),
+     y = par("usr")[3] - 0.45,
+     labels = levels(FireTrtHist$ecoregion),
+     xpd = NA,
+     srt = 35,      ## Rotate the labels by 35 degrees.
+     cex = 1.2)
 abline(h = 0, lty = 2)
-points(x = jitter(rep(2, length(df$per.eff[df$trt == "thin"])), factor = 2),
-       y = df$per.eff[df$trt == "thin"],
-       col = pal[df$ecoregion],
-       pch = 19)
-points(x = jitter(rep(3, length(df$per.eff[df$trt == "rx"])), factor = 2),
-       y = df$per.eff[df$trt == "rx"],
-       col = pal[df$ecoregion],
-       pch = 19)
-points(x = jitter(rep(4, length(df$per.eff[df$trt == "b"])), factor = 2),
-       y = df$per.eff[df$trt == "b"],
-       col = pal[df$ecoregion],
-       pch = 19)
-points(x = jitter(rep(5, length(df$per.eff[df$trt == "n"])), factor = 2),
-       y = df$per.eff[df$trt == "n"],
-       col = pal[df$ecoregion],
-       pch = 19)
-points(x = 2.2,
-       y = mean(df$per.eff[df$trt == "thin"], na.rm = TRUE),
-       col = rgb(0,0,0, alpha = 1),
-       pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x0 = 2.2, 
-         y1 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x1 = 2.2, 
-         col = rgb(0,0,0),lwd = 1.5)
-points(x = 3.2,
-       y = mean(df$per.eff[df$trt == "rx"], na.rm = TRUE),
-       col = rgb(0,0,0, alpha = 1),
-       pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x0 = 3.2, 
-         y1 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x1 = 3.2, 
-         col = rgb(0,0,0),lwd = 1.5)
-points(x = 4.2,
-       y = mean(df$per.eff[df$trt == "b"], na.rm = TRUE),
-       col = rgb(0,0,0, alpha = 1),
-       pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x0 = 4.2, 
-         y1 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x1 = 4.2, 
-         col = rgb(0,0,0),lwd = 1.5)
-points(x = 5.3,
-       y = mean(df$per.eff[df$trt == "n"], na.rm = TRUE),
-       col = rgb(0,0,0, alpha = 1),
-       pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x0 = 5.3, 
-         y1 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x1 = 5.3, 
-         col = rgb(0,0,0),lwd = 1.5)
-plot(x = c(0:5),
-     ylim = c(-1.1,1.1),
-     las = 1,
-     cex.axis = 1.5,
-     ylab = "",
-     type = "n",
-     xaxt = "n",
-     xlab = "") ## disturbance history
-axis(1, at = c(2:5), line = 1, tick = F, labels = c("Thin", "Rx", "Both", "Neither"), cex.axis = 1.5)
-abline(h = 0, lty = 2)
-
-loc <- 1.6 ## add 0.08 each time
-loc.r <- loc + 1
-loc.b <- loc + 2
-loc.n <- loc + 3
-pal <- viridis(12, alpha = 1)
-
-for(i in 1:length(obj.names)){
-  ## thin
-points(x = loc,
-       y = mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE),
-       col = pal[i],
-       pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "thin" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x0 = loc, 
-         y1 = (mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "thin" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x1 = loc, 
-         col = pal[i],lwd = 1.5)
-loc <- loc +0.08
-  ## burn
-points(x = loc.r,
-       y = mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE),
-       col = pal[i],
-       pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "rx" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x0 = loc.r, 
-         y1 = (mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "rx" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x1 = loc.r, 
-         col = pal[i],lwd = 1.5)
-loc.r <- loc + 1
-  ## both
-points(x = loc.b,
-       y = mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE),
-       col = pal[i],
-       pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "b" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x0 = loc.b, 
-         y1 = (mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "b" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x1 = loc.b, 
-         col = pal[i],lwd = 1.5)
-loc.b <- loc + 2
-  ## neither
-points(x = loc.n,
-       y = mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE),
-       col = pal[i],
-       pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "n" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x0 = loc.n, 
-         y1 = (mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "n" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x1 = loc.n, 
-         col = pal[i],lwd = 1.5)
-loc.n <- loc + 3
+for(i in 1:length(levels(FireTrtHist$ecoregion))){
+  points(x = jitter(rep(i, length(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]])), factor = 1.2),
+         y = df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]],
+         col = pal1[i],
+         pch = 16)
+  points(x = i,
+         y = mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE),
+         col = pal2[i],
+         pch = 16)
+  segments(y0 = (mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x0 = i, 
+           y1 = (mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x1 = i, 
+           col = pal2[i],
+           lwd = 1.5)
 }
-legend("bottom", legend = obj.names, col = pal, pch = 16, bty = "n", ncol = 6)
+text(x = 14,
+     y = par("usr")[3] - 0.45,
+     labels = "total",
+     xpd = NA,
+     srt = 35,      ## Rotate the labels by 35 degrees.
+     cex = 1.2)
+points(x = jitter(rep(14, length(df$per.eff[df$trt == "thin"])), factor = 1.2),
+       y = df$per.eff[df$trt == "thin"],
+       col = rgb(0,0,0, alpha = 0.2),
+       pch = 16)
+points(x = 14,
+       y = mean(df$per.eff[df$trt == "thin"], na.rm = TRUE),
+       col = "black",
+       pch = 16)
+segments(y0 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x0 = 14, 
+         y1 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x1 = 14, 
+         col = "black",
+         lwd = 1.5)
+
+## Rx Fire
+plot(x = c(0:14),
+     ylim = c(-1.1,1.1),
+     las = 1,
+     main = "Rx Fire",
+     cex.axis = 1.5,
+     ylab = "",
+     type = "n",
+     xaxt = "n",
+     xlab = "") ## ecoregion
+text(x = 1:length(levels(FireTrtHist$ecoregion)),
+     y = par("usr")[3] - 0.45,
+     labels = levels(FireTrtHist$ecoregion),
+     xpd = NA,
+     srt = 35,      ## Rotate the labels by 35 degrees.
+     cex = 1.2)
+abline(h = 0, lty = 2)
+for(i in 1:length(levels(FireTrtHist$ecoregion))){
+  points(x = jitter(rep(i, length(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]])), factor = 1.2),
+         y = df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]],
+         col = pal1[i],
+         pch = 16)
+  points(x = i,
+         y = mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE),
+         col = pal2[i],
+         pch = 16)
+  segments(y0 = (mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x0 = i, 
+           y1 = (mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x1 = i, 
+           col = pal2[i],
+           lwd = 1.5)
+}
+text(x = 14,
+     y = par("usr")[3] - 0.45,
+     labels = "total",
+     xpd = NA,
+     srt = 35,      ## Rotate the labels by 35 degrees.
+     cex = 1.2)
+points(x = jitter(rep(14, length(df$per.eff[df$trt == "rx"])), factor = 1.2),
+       y = df$per.eff[df$trt == "rx"],
+       col = rgb(0,0,0, alpha = 0.2),
+       pch = 16)
+points(x = 14,
+       y = mean(df$per.eff[df$trt == "rx"], na.rm = TRUE),
+       col = "black",
+       pch = 16)
+segments(y0 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x0 = 14, 
+         y1 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x1 = 14, 
+         col = "black",
+         lwd = 1.5)
+
+## Thin and Rx Fire
+plot(x = c(0:14),
+     ylim = c(-1.1,1.1),
+     las = 1,
+     main = "Thin + Rx",
+     cex.axis = 1.5,
+     ylab = "",
+     type = "n",
+     xaxt = "n",
+     xlab = "") ## ecoregion
+text(x = 1:length(levels(FireTrtHist$ecoregion)),
+     y = par("usr")[3] - 0.45,
+     labels = levels(FireTrtHist$ecoregion),
+     xpd = NA,
+     srt = 35,      ## Rotate the labels by 35 degrees.
+     cex = 1.2)
+abline(h = 0, lty = 2)
+for(i in 1:length(levels(FireTrtHist$ecoregion))){
+  points(x = jitter(rep(i, length(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]])), factor = 1.2),
+         y = df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]],
+         col = pal1[i],
+         pch = 16)
+  points(x = i,
+         y = mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE),
+         col = pal2[i],
+         pch = 16)
+  segments(y0 = (mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x0 = i, 
+           y1 = (mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x1 = i, 
+           col = pal2[i],
+           lwd = 1.5)
+}
+text(x = 14,
+     y = par("usr")[3] - 0.45,
+     labels = "total",
+     xpd = NA,
+     srt = 35,      ## Rotate the labels by 35 degrees.
+     cex = 1.2)
+points(x = jitter(rep(14, length(df$per.eff[df$trt == "b"])), factor = 1.2),
+       y = df$per.eff[df$trt == "b"],
+       col = rgb(0,0,0, alpha = 0.2),
+       pch = 16)
+points(x = 14,
+       y = mean(df$per.eff[df$trt == "b"], na.rm = TRUE),
+       col = "black",
+       pch = 16)
+segments(y0 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x0 = 14, 
+         y1 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x1 = 14, 
+         col = "black",
+         lwd = 1.5)
+
+## No Treatments
+plot(x = c(0:14),
+     ylim = c(-1.1,1.1),
+     las = 1,
+     main = "No Treatments",
+     cex.axis = 1.5,
+     ylab = "",
+     type = "n",
+     xaxt = "n",
+     xlab = "") ## ecoregion
+text(x = 1:length(levels(FireTrtHist$ecoregion)),
+     y = par("usr")[3] - 0.45,
+     labels = levels(FireTrtHist$ecoregion),
+     xpd = NA,
+     srt = 35,      ## Rotate the labels by 35 degrees.
+     cex = 1.2)
+abline(h = 0, lty = 2)
+for(i in 1:length(levels(FireTrtHist$ecoregion))){
+  points(x = jitter(rep(i, length(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]])), factor = 1.2),
+         y = df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]],
+         col = pal1[i],
+         pch = 16)
+  points(x = i,
+         y = mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE),
+         col = pal2[i],
+         pch = 16)
+  segments(y0 = (mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x0 = i, 
+           y1 = (mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x1 = i, 
+           col = pal2[i],
+           lwd = 1.5)
+}
+text(x = 14,
+     y = par("usr")[3] - 0.45,
+     labels = "total",
+     xpd = NA,
+     srt = 35,      ## Rotate the labels by 35 degrees.
+     cex = 1.2)
+points(x = jitter(rep(14, length(df$per.eff[df$trt == "n"])), factor = 1.2),
+       y = df$per.eff[df$trt == "n"],
+       col = rgb(0,0,0, alpha = 0.2),
+       pch = 16)
+points(x = 14,
+       y = mean(df$per.eff[df$trt == "n"], na.rm = TRUE),
+       col = "black",
+       pch = 16)
+segments(y0 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x0 = 14, 
+         y1 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x1 = 14, 
+         col = "black",
+         lwd = 1.5)
+
 
 ## summary stats small fires
 a1 <- aov(per.eff ~ trt, data = df)
@@ -1061,118 +1168,206 @@ df <- data.frame(per.eff = c(megafires$thin.odds,megafires$rx.odds,megafires$b.o
                  trt = c(rep("thin", nrow(megafires)), rep("rx", nrow(megafires)), rep("b", nrow(megafires)), rep("n",nrow(megafires))),
                  ecoregion = rep(megafires$ecoregion, 4))
 
-par(mfrow = c(2,1))
-pal <- viridis(12, alpha = 0.5)
-plot(x = c(0:5),
+## Thinning
+plot(x = c(0:14),
      ylim = c(-1.1,1.1),
      las = 1,
+     main = "Thinning",
      cex.axis = 1.5,
      ylab = "",
      type = "n",
      xaxt = "n",
-     xlab = "") ## disturbance history
-axis(1, at = c(2:5), line = 1, tick = F, labels = c("Thin", "Rx", "Both", "Neither"), cex.axis = 1.5)
+     xlab = "") ## ecoregion
+text(x = 1:length(levels(FireTrtHist$ecoregion)),
+     y = par("usr")[3] - 0.45,
+     labels = levels(FireTrtHist$ecoregion),
+     xpd = NA,
+     srt = 35,      ## Rotate the labels by 35 degrees.
+     cex = 1.2)
 abline(h = 0, lty = 2)
-points(x = jitter(rep(2, length(df$per.eff[df$trt == "thin"])), factor = 2),
-       y = df$per.eff[df$trt == "thin"],
-       col = pal[df$ecoregion],
-       pch = 19)
-points(x = jitter(rep(3, length(df$per.eff[df$trt == "rx"])), factor = 2),
-       y = df$per.eff[df$trt == "rx"],
-       col = pal[df$ecoregion],
-       pch = 19)
-points(x = jitter(rep(4, length(df$per.eff[df$trt == "b"])), factor = 2),
-       y = df$per.eff[df$trt == "b"],
-       col = pal[df$ecoregion],
-       pch = 19)
-points(x = jitter(rep(5, length(df$per.eff[df$trt == "n"])), factor = 2),
-       y = df$per.eff[df$trt == "n"],
-       col = pal[df$ecoregion],
-       pch = 19)
-points(x = 2.2,
-       y = mean(df$per.eff[df$trt == "thin"], na.rm = TRUE),
-       col = rgb(0,0,0, alpha = 1),
-       pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x0 = 2.2, 
-         y1 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x1 = 2.2, 
-         col = rgb(0,0,0),lwd = 1.5)
-points(x = 3.2,
-       y = mean(df$per.eff[df$trt == "rx"], na.rm = TRUE),
-       col = rgb(0,0,0, alpha = 1),
-       pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x0 = 3.2, 
-         y1 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x1 = 3.2, 
-         col = rgb(0,0,0),lwd = 1.5)
-points(x = 4.2,
-       y = mean(df$per.eff[df$trt == "b"], na.rm = TRUE),
-       col = rgb(0,0,0, alpha = 1),
-       pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x0 = 4.2, 
-         y1 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x1 = 4.2, 
-         col = rgb(0,0,0),lwd = 1.5)
-points(x = 5.3,
-       y = mean(df$per.eff[df$trt == "n"], na.rm = TRUE),
-       col = rgb(0,0,0, alpha = 1),
-       pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x0 = 5.3, 
-         y1 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x1 = 5.3, 
-         col = rgb(0,0,0),lwd = 1.5)
-plot(x = c(0:5),
-     ylim = c(-1.1,1.1),
-     las = 1,
-     cex.axis = 1.5,
-     ylab = "",
-     type = "n",
-     xaxt = "n",
-     xlab = "") ## disturbance history
-axis(1, at = c(2:5), line = 1, tick = F, labels = c("Thin", "Rx", "Both", "Neither"), cex.axis = 1.5)
-abline(h = 0, lty = 2)
-
-loc <- 1.6 ## add 0.08 each time
-loc.r <- loc + 1
-loc.b <- loc + 2
-loc.n <- loc + 3
-pal <- viridis(12, alpha = 1)
-
-for(i in 1:length(obj.names)){
-  ## thin
-  points(x = loc,
-         y = mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE),
-         col = pal[i],
+for(i in 1:length(levels(FireTrtHist$ecoregion))){
+  points(x = jitter(rep(i, length(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]])), factor = 1.2),
+         y = df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]],
+         col = pal1[i],
          pch = 16)
-  segments(y0 = (mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "thin" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x0 = loc, 
-           y1 = (mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "thin" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x1 = loc, 
-           col = pal[i],lwd = 1.5)
-  loc <- loc +0.08
-  ## burn
-  points(x = loc.r,
-         y = mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE),
-         col = pal[i],
+  points(x = i,
+         y = mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE),
+         col = pal2[i],
          pch = 16)
-  segments(y0 = (mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "rx" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x0 = loc.r, 
-           y1 = (mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "rx" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x1 = loc.r, 
-           col = pal[i],lwd = 1.5)
-  loc.r <- loc + 1
-  ## both
-  points(x = loc.b,
-         y = mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE),
-         col = pal[i],
-         pch = 16)
-  segments(y0 = (mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "b" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x0 = loc.b, 
-           y1 = (mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "b" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x1 = loc.b, 
-           col = pal[i],lwd = 1.5)
-  loc.b <- loc + 2
-  ## neither
-  points(x = loc.n,
-         y = mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE),
-         col = pal[i],
-         pch = 16)
-  segments(y0 = (mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "n" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x0 = loc.n, 
-           y1 = (mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "n" & df$ecoregion == levels(df$ecoregion)[i]], na.rm = TRUE)), x1 = loc.n, 
-           col = pal[i],lwd = 1.5)
-  loc.n <- loc + 3
+  segments(y0 = (mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x0 = i, 
+           y1 = (mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x1 = i, 
+           col = pal2[i],
+           lwd = 1.5)
 }
-# legend("bottom", legend = obj.names, col = pal, pch = 16, bty = "n", ncol = 6)
+text(x = 14,
+     y = par("usr")[3] - 0.45,
+     labels = "total",
+     xpd = NA,
+     srt = 35,      ## Rotate the labels by 35 degrees.
+     cex = 1.2)
+points(x = jitter(rep(14, length(df$per.eff[df$trt == "thin"])), factor = 1.2),
+       y = df$per.eff[df$trt == "thin"],
+       col = rgb(0,0,0, alpha = 0.2),
+       pch = 16)
+points(x = 14,
+       y = mean(df$per.eff[df$trt == "thin"], na.rm = TRUE),
+       col = "black",
+       pch = 16)
+segments(y0 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x0 = 14, 
+         y1 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x1 = 14, 
+         col = "black",
+         lwd = 1.5)
+
+## Rx Fire
+plot(x = c(0:14),
+     ylim = c(-1.1,1.1),
+     las = 1,
+     main = "Rx Fire",
+     cex.axis = 1.5,
+     ylab = "",
+     type = "n",
+     xaxt = "n",
+     xlab = "") ## ecoregion
+text(x = 1:length(levels(FireTrtHist$ecoregion)),
+     y = par("usr")[3] - 0.45,
+     labels = levels(FireTrtHist$ecoregion),
+     xpd = NA,
+     srt = 35,      ## Rotate the labels by 35 degrees.
+     cex = 1.2)
+abline(h = 0, lty = 2)
+for(i in 1:length(levels(FireTrtHist$ecoregion))){
+  points(x = jitter(rep(i, length(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]])), factor = 1.2),
+         y = df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]],
+         col = pal1[i],
+         pch = 16)
+  points(x = i,
+         y = mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE),
+         col = pal2[i],
+         pch = 16)
+  segments(y0 = (mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x0 = i, 
+           y1 = (mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x1 = i, 
+           col = pal2[i],
+           lwd = 1.5)
+}
+text(x = 14,
+     y = par("usr")[3] - 0.45,
+     labels = "total",
+     xpd = NA,
+     srt = 35,      ## Rotate the labels by 35 degrees.
+     cex = 1.2)
+points(x = jitter(rep(14, length(df$per.eff[df$trt == "rx"])), factor = 1.2),
+       y = df$per.eff[df$trt == "rx"],
+       col = rgb(0,0,0, alpha = 0.2),
+       pch = 16)
+points(x = 14,
+       y = mean(df$per.eff[df$trt == "rx"], na.rm = TRUE),
+       col = "black",
+       pch = 16)
+segments(y0 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x0 = 14, 
+         y1 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x1 = 14, 
+         col = "black",
+         lwd = 1.5)
+
+## Thin and Rx Fire
+plot(x = c(0:14),
+     ylim = c(-1.1,1.1),
+     las = 1,
+     main = "Thin + Rx",
+     cex.axis = 1.5,
+     ylab = "",
+     type = "n",
+     xaxt = "n",
+     xlab = "") ## ecoregion
+text(x = 1:length(levels(FireTrtHist$ecoregion)),
+     y = par("usr")[3] - 0.45,
+     labels = levels(FireTrtHist$ecoregion),
+     xpd = NA,
+     srt = 35,      ## Rotate the labels by 35 degrees.
+     cex = 1.2)
+abline(h = 0, lty = 2)
+for(i in 1:length(levels(FireTrtHist$ecoregion))){
+  points(x = jitter(rep(i, length(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]])), factor = 1.2),
+         y = df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]],
+         col = pal1[i],
+         pch = 16)
+  points(x = i,
+         y = mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE),
+         col = pal2[i],
+         pch = 16)
+  segments(y0 = (mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x0 = i, 
+           y1 = (mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x1 = i, 
+           col = pal2[i],
+           lwd = 1.5)
+}
+text(x = 14,
+     y = par("usr")[3] - 0.45,
+     labels = "total",
+     xpd = NA,
+     srt = 35,      ## Rotate the labels by 35 degrees.
+     cex = 1.2)
+points(x = jitter(rep(14, length(df$per.eff[df$trt == "b"])), factor = 1.2),
+       y = df$per.eff[df$trt == "b"],
+       col = rgb(0,0,0, alpha = 0.2),
+       pch = 16)
+points(x = 14,
+       y = mean(df$per.eff[df$trt == "b"], na.rm = TRUE),
+       col = "black",
+       pch = 16)
+segments(y0 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x0 = 14, 
+         y1 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x1 = 14, 
+         col = "black",
+         lwd = 1.5)
+
+## No Treatments
+plot(x = c(0:14),
+     ylim = c(-1.1,1.1),
+     las = 1,
+     main = "No Treatments",
+     cex.axis = 1.5,
+     ylab = "",
+     type = "n",
+     xaxt = "n",
+     xlab = "") ## ecoregion
+text(x = 1:length(levels(FireTrtHist$ecoregion)),
+     y = par("usr")[3] - 0.45,
+     labels = levels(FireTrtHist$ecoregion),
+     xpd = NA,
+     srt = 35,      ## Rotate the labels by 35 degrees.
+     cex = 1.2)
+abline(h = 0, lty = 2)
+for(i in 1:length(levels(FireTrtHist$ecoregion))){
+  points(x = jitter(rep(i, length(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]])), factor = 1.2),
+         y = df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]],
+         col = pal1[i],
+         pch = 16)
+  points(x = i,
+         y = mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE),
+         col = pal2[i],
+         pch = 16)
+  segments(y0 = (mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x0 = i, 
+           y1 = (mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x1 = i, 
+           col = pal2[i],
+           lwd = 1.5)
+}
+text(x = 14,
+     y = par("usr")[3] - 0.45,
+     labels = "total",
+     xpd = NA,
+     srt = 35,      ## Rotate the labels by 35 degrees.
+     cex = 1.2)
+points(x = jitter(rep(14, length(df$per.eff[df$trt == "n"])), factor = 1.2),
+       y = df$per.eff[df$trt == "n"],
+       col = rgb(0,0,0, alpha = 0.2),
+       pch = 16)
+points(x = 14,
+       y = mean(df$per.eff[df$trt == "n"], na.rm = TRUE),
+       col = "black",
+       pch = 16)
+segments(y0 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x0 = 14, 
+         y1 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x1 = 14, 
+         col = "black",
+         lwd = 1.5)
+
 
 ## summary stats large fires
 a1 <- aov(per.eff ~ trt, data = df)
@@ -1191,11 +1386,12 @@ aggregate(per.eff ~ trt, data = df, se)
 aggregate(per.eff ~ trt + ecoregion, data = df, mean) 
 aggregate(per.eff ~ trt + ecoregion, data = df, se) 
 
+rm(list = ls())
 
 #### Random Forest - Western USA ####
 Engaged_Lines <- read.csv("Engaged_Lines_DisturbanceHistory.csv")
-colnames(Engaged_Lines)
-Engaged_Lines <- Engaged_Lines[,c(31,32,34:38,28,29)]
+colnames(Engaged_Lines)[c(31,32,33,34,36:40,28,29)]
+Engaged_Lines <- Engaged_Lines[,c(31,32,33,34,36:40,28,29)]
 head(Engaged_Lines)
 
 str(Engaged_Lines)
@@ -1211,6 +1407,9 @@ max(Engaged_Lines$TS.rx,na.rm = TRUE)
 max(Engaged_Lines$TS.thin,na.rm = TRUE)
 Engaged_Lines$TS.rx[is.na(Engaged_Lines$TS.rx)] <- 30 ## trying to get the max year just outside bounds
 Engaged_Lines$TS.thin[is.na(Engaged_Lines$TS.thin)] <- 30
+
+backup_dat <- Engaged_Lines
+Engaged_Lines <- Engaged_Lines[,c(1,2,5:11)] ## removing incid name and burn acre (seeing if this runs)
 
 ## Random Forest - western spatial scale
 n <- 100 # number of iterations
@@ -1411,7 +1610,7 @@ for(i in 1:n){
 }
 
 ## pred vs obs plot
-par(mfrow = c(1,1))
+par(mfrow = c(1,1), oma = c(0,0,0,0))
 # y_hats1.diff <- y_hats1.diff*100 ## converting to %
 max(y_hats1.diff);min(y_hats1.diff)
 plot(x = 1:length(y_hats1.diff), y = y_hats1.diff,
@@ -1509,7 +1708,7 @@ mean(AUC.val2);min(AUC.val2);max(AUC.val2)
 r2.mean <- apply(r2,1,mean)
 mean(r2.mean);min(r2.mean);max(r2.mean)
 hist(r2)
-## between 11 - 40% of additional variance explained (average 5.5%)
+## between 11 - 40% of additional variance explained
 # [1] 0.204494
 # [1] 0.1107893
 # [1] 0.4120808
@@ -2233,25 +2432,11 @@ legend("bottomright", legend = c("western USA", "Southern Rockies", "Cameron Pas
 
 #### Chi Sq. Test ####
 Engaged_Lines <- read.csv("Engaged_Lines_DisturbanceHistory.csv")
-colnames(Engaged_Lines)
-Engaged_Lines <- Engaged_Lines[,c(31,32,34:38,28,29)]
+colnames(Engaged_Lines)[c(31:34,36:40,28,29)]
+Engaged_Lines <- Engaged_Lines[,c(31:34,36:40,28,29)]
 head(Engaged_Lines)
 
-## lets see if I can add fire sizes
-Fires2DEL <- read.csv("Fires2DEL.csv")
-W_Fires <- vect("./mtbs_perimeter_data/WF_Fires.shp")
-Lines.spat <- vect(Engaged_Lines, geom=c("x","y"), crs = crs(W_Fires))
-Lines.spat <- tidyterra::as_sf(Lines.spat) ## need to make into sf objects first
-
-W_Fires <- tidyterra::as_sf(W_Fires) ## need to make into sf objects first
-gc()
-Lines_w_names <- st_join(Lines.spat, W_Fires, join = st_intersects)
-
-`%notin%` <- Negate(`%in%`)
-Engaged_Lines <- Lines_w_names[Lines_w_names$Incid_Name %notin% Fires2DEL$name,]
-rm(Lines_w_names);rm(Fires2DEL);rm(W_Fires);rm(`%notin%`);rm(Lines.spat)
-gc()
-
+## all fires
 table(Engaged_Lines$trt)
 table(Engaged_Lines$stat[Engaged_Lines$trt == "Thinning only"])
 table(Engaged_Lines$stat[Engaged_Lines$trt == "Thinning and Prescribed"])
@@ -2307,10 +2492,10 @@ fisher.test(m4) ## looks like thinned x burned lines less likely to fail
 1/0.8139909 ## 20% increase in lines holding in TxB
 
 ## splitting into small and larger fires
-hist(Engaged_Lines$BurnBndAc)
-smallfires <- Engaged_Lines[Engaged_Lines$BurnBndAc < 10000,]
+hist(Engaged_Lines$BurnAcre)
+smallfires <- Engaged_Lines[Engaged_Lines$BurnAcre < 10000,]
 smallfires <- smallfires[complete.cases(smallfires$stat),]
-largefires <- Engaged_Lines[Engaged_Lines$BurnBndAc >= 10000,]
+largefires <- Engaged_Lines[Engaged_Lines$BurnAcre >= 10000,]
 largefires <- largefires[complete.cases(largefires$stat),]
 gc()
 
