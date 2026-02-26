@@ -2624,184 +2624,300 @@ table(Engaged_Lines$ecoregion)
 table(is.na(Engaged_Lines$ecoregion))
 Engaged_Lines <- Engaged_Lines[complete.cases(Engaged_Lines$ecoregion),]
 
-## automating results
+## splitting into small and larger fires
+hist(Engaged_Lines$BurnAcre)
+smallfires <- Engaged_Lines[Engaged_Lines$BurnAcre < 10000,]
+smallfires <- smallfires[complete.cases(smallfires$stat),]
+largefires <- Engaged_Lines[Engaged_Lines$BurnAcre >= 10000,]
+largefires <- largefires[complete.cases(largefires$stat),]
+gc()
+
+## small fires
 vec <- unique(Engaged_Lines$ecoregion)
 trts <- unique(Engaged_Lines$trt)
 
-est.mat <-matrix(nrow = length(vec),
+est.mat.s <-matrix(nrow = length(vec),
                  ncol = length(trts))
-rownames(est.mat) <- vec
-colnames(est.mat) <- trts
+rownames(est.mat.s) <- vec
+colnames(est.mat.s) <- trts
 
-lwr.mat <-matrix(nrow = length(vec),
+lwr.mat.s <-matrix(nrow = length(vec),
                  ncol = length(trts))
-rownames(lwr.mat) <- vec
-colnames(lwr.mat) <- trts
+rownames(lwr.mat.s) <- vec
+colnames(lwr.mat.s) <- trts
 
-upr.mat <-matrix(nrow = length(vec),
+upr.mat.s <-matrix(nrow = length(vec),
                  ncol = length(trts))
-rownames(upr.mat) <- vec
-colnames(upr.mat) <- trts
+rownames(upr.mat.s) <- vec
+colnames(upr.mat.s) <- trts
+
+p.mat.s <-matrix(nrow = length(vec),
+                 ncol = length(trts))
+rownames(p.mat.s) <- vec
+colnames(p.mat.s) <- trts
 
 for(i in 1:length(vec)){
-  mat <- matrix(c(nrow(Engaged_Lines[Engaged_Lines$stat == "EH" & Engaged_Lines$trt == "Neither" & Engaged_Lines$ecoregion == vec[i],]),
-                  nrow(Engaged_Lines[Engaged_Lines$stat == "EF" & Engaged_Lines$trt == "Neither" & Engaged_Lines$ecoregion == vec[i],]),
-                  nrow(Engaged_Lines[Engaged_Lines$stat == "EH" & Engaged_Lines$trt == "Prescribed only" & Engaged_Lines$ecoregion == vec[i],]),
-                  nrow(Engaged_Lines[Engaged_Lines$stat == "EF" & Engaged_Lines$trt == "Prescribed only" & Engaged_Lines$ecoregion == vec[i],]),
-                  nrow(Engaged_Lines[Engaged_Lines$stat == "EH" & Engaged_Lines$trt == "Thinning only" & Engaged_Lines$ecoregion == vec[i],]),
-                  nrow(Engaged_Lines[Engaged_Lines$stat == "EF" & Engaged_Lines$trt == "Thinning only" & Engaged_Lines$ecoregion == vec[i],]),
-                  nrow(Engaged_Lines[Engaged_Lines$stat == "EH" & Engaged_Lines$trt == "Thinning and Prescribed" & Engaged_Lines$ecoregion == vec[i],]),
-                  nrow(Engaged_Lines[Engaged_Lines$stat == "EF" & Engaged_Lines$trt == "Thinning and Prescribed" & Engaged_Lines$ecoregion == vec[i],])),
+  mat <- matrix(c(nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Neither" & smallfires$ecoregion == vec[i],]),
+                  nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Neither" & smallfires$ecoregion == vec[i],]),
+                  nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Prescribed only" & smallfires$ecoregion == vec[i],]),
+                  nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Prescribed only" & smallfires$ecoregion == vec[i],]),
+                  nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Thinning only" & smallfires$ecoregion == vec[i],]),
+                  nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Thinning only" & smallfires$ecoregion == vec[i],]),
+                  nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Thinning and Prescribed" & smallfires$ecoregion == vec[i],]),
+                  nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Thinning and Prescribed" & smallfires$ecoregion == vec[i],])),
                 nrow = 2, byrow = F)
   colnames(mat) <- trts
   rownames(mat) <- c("EH", "EF")
-  mosaicplot(mat,
-             main = vec[i],
-             xlab = "Line Status",
-             ylab = "Treatment")
   for(j in 1:length(trts)){
     m2 <- mat[c(1,2),c(j,1)]
-    mosaicplot(m2,
-               main = vec[i],
-               xlab = "Line Status",
-               ylab = "Treatment")
-    est.mat[i,j] <- fisher.test(m2)$estimate
-    lwr.mat[i,j] <- fisher.test(m2)$conf.int[1]
-    upr.mat[i,j] <- fisher.test(m2)$conf.int[2]
+    est.mat.s[i,j] <- fisher.test(m2)$estimate
+    lwr.mat.s[i,j] <- fisher.test(m2)$conf.int[1]
+    upr.mat.s[i,j] <- fisher.test(m2)$conf.int[2]
+    p.mat.s[i,j] <- fisher.test(m2)$p.value
   }
-
 }
 
-# 
-# ## splitting into small and larger fires
-# hist(Engaged_Lines$BurnAcre)
-# smallfires <- Engaged_Lines[Engaged_Lines$BurnAcre < 10000,]
-# smallfires <- smallfires[complete.cases(smallfires$stat),]
-# largefires <- Engaged_Lines[Engaged_Lines$BurnAcre >= 10000,]
-# largefires <- largefires[complete.cases(largefires$stat),]
-# gc()
-# 
-# ## small fires
-# mat <- matrix(c(nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Thinning only",]),
-#                 nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Thinning only",]),
-#                 nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Prescribed only",]),
-#                 nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Prescribed only",]),
-#                 nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Thinning and Prescribed",]),
-#                 nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Thinning and Prescribed",]),
-#                 nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Neither",]),
-#                 nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Neither",])),
-#               nrow = 2, byrow = F)
-# 
-# colnames(mat) <- c("Thin", "Burn", "ThinXBurn","No Trt")
-# rownames(mat) <- c("EH", "EF")
-# 
-# mosaicplot(mat,
-#            main = "",
-#            xlab = "Line Status",
-#            ylab = "Treatment")
-# 
-# chisq.test(mat)
-# 
-# m2 <- mat[c(1,2),c(4,1)]
-# mosaicplot(m2,
-#            main = "",
-#            xlab = "Line Status",
-#            ylab = "Treatment")
-# 
-# chisq.test(m2)
-# fisher.test(m2) ## looks like thinned lines more likely to fail
-# 
-# m3 <- mat[c(1,2),c(4,2)]
-# mosaicplot(m3,
-#            main = "",
-#            xlab = "Line Status",
-#            ylab = "Treatment")
-# 
-# chisq.test(m3)
-# fisher.test(m3) ## looks like burned lines more likely to fail
-# 
-# m4 <- mat[c(1,2),c(4,3)]
-# mosaicplot(m4,
-#            main = "",
-#            xlab = "Line Status",
-#            ylab = "Treatment")
-# 
-# chisq.test(m4)
-# fisher.test(m4) ## looks like thinned x burned lines less likely to fail
-# 
-# ## large fires
-# mat <- matrix(c(nrow(largefires[largefires$stat == "EH" & largefires$trt == "Thinning only",]),
-#                 nrow(largefires[largefires$stat == "EF" & largefires$trt == "Thinning only",]),
-#                 nrow(largefires[largefires$stat == "EH" & largefires$trt == "Prescribed only",]),
-#                 nrow(largefires[largefires$stat == "EF" & largefires$trt == "Prescribed only",]),
-#                 nrow(largefires[largefires$stat == "EH" & largefires$trt == "Thinning and Prescribed",]),
-#                 nrow(largefires[largefires$stat == "EF" & largefires$trt == "Thinning and Prescribed",]),
-#                 nrow(largefires[largefires$stat == "EH" & largefires$trt == "Neither",]),
-#                 nrow(largefires[largefires$stat == "EF" & largefires$trt == "Neither",])),
-#               nrow = 2, byrow = F)
-# 
-# colnames(mat) <- c("Thin", "Burn", "ThinXBurn","No Trt")
-# rownames(mat) <- c("EH", "EF")
-# 
-# mosaicplot(mat,
-#            main = "",
-#            xlab = "Line Status",
-#            ylab = "Treatment")
-# 
-# chisq.test(mat)
-# 
-# m2 <- mat[c(1,2),c(4,1)]
-# mosaicplot(m2,
-#            main = "",
-#            xlab = "Line Status",
-#            ylab = "Treatment")
-# 
-# chisq.test(m2)
-# fisher.test(m2) ## looks like thinned lines more likely to fail
-# 
-# m3 <- mat[c(1,2),c(4,2)]
-# mosaicplot(m3,
-#            main = "",
-#            xlab = "Line Status",
-#            ylab = "Treatment")
-# 
-# chisq.test(m3)
-# fisher.test(m3) ## looks like burned lines more likely to fail
-# 
-# m4 <- mat[c(1,2),c(4,3)]
-# mosaicplot(m4,
-#            main = "",
-#            xlab = "Line Status",
-#            ylab = "Treatment")
-# 
-# chisq.test(m4)
-# fisher.test(m4) ## looks like thinned x burned lines less likely to fail
 
-## plotting
+## large fires
+est.mat.l <-matrix(nrow = length(vec),
+                   ncol = length(trts))
+rownames(est.mat.l) <- vec
+colnames(est.mat.l) <- trts
+
+lwr.mat.l <-matrix(nrow = length(vec),
+                   ncol = length(trts))
+rownames(lwr.mat.l) <- vec
+colnames(lwr.mat.l) <- trts
+
+upr.mat.l <-matrix(nrow = length(vec),
+                   ncol = length(trts))
+rownames(upr.mat.l) <- vec
+colnames(upr.mat.l) <- trts
+p.mat.l <-matrix(nrow = length(vec),
+                 ncol = length(trts))
+rownames(p.mat.l) <- vec
+colnames(p.mat.l) <- trts
+
+for(i in 1:length(vec)){
+  mat <- matrix(c(nrow(largefires[largefires$stat == "EH" & largefires$trt == "Neither" & largefires$ecoregion == vec[i],]),
+                  nrow(largefires[largefires$stat == "EF" & largefires$trt == "Neither" & largefires$ecoregion == vec[i],]),
+                  nrow(largefires[largefires$stat == "EH" & largefires$trt == "Prescribed only" & largefires$ecoregion == vec[i],]),
+                  nrow(largefires[largefires$stat == "EF" & largefires$trt == "Prescribed only" & largefires$ecoregion == vec[i],]),
+                  nrow(largefires[largefires$stat == "EH" & largefires$trt == "Thinning only" & largefires$ecoregion == vec[i],]),
+                  nrow(largefires[largefires$stat == "EF" & largefires$trt == "Thinning only" & largefires$ecoregion == vec[i],]),
+                  nrow(largefires[largefires$stat == "EH" & largefires$trt == "Thinning and Prescribed" & largefires$ecoregion == vec[i],]),
+                  nrow(largefires[largefires$stat == "EF" & largefires$trt == "Thinning and Prescribed" & largefires$ecoregion == vec[i],])),
+                nrow = 2, byrow = F)
+  colnames(mat) <- trts
+  rownames(mat) <- c("EH", "EF")
+  for(j in 1:length(trts)){
+    m2 <- mat[c(1,2),c(j,1)]
+    est.mat.l[i,j] <- fisher.test(m2)$estimate
+    lwr.mat.l[i,j] <- fisher.test(m2)$conf.int[1]
+    upr.mat.l[i,j] <- fisher.test(m2)$conf.int[2]
+    p.mat.l[i,j] <- fisher.test(m2)$p.value
+  }
+  
+}
+
+# upr.mat.s[upr.mat.s == Inf] <- NA
+# upr.mat.s[upr.mat.s == 0] <- NA
+# est.mat.s[est.mat.s == Inf] <- NA
+# est.mat.s[est.mat.s == 0] <- NA
+# lwr.mat.s[lwr.mat.s == Inf] <- NA
+# lwr.mat.s[lwr.mat.s == 0] <- NA
+
+max(upr.mat.s[which(p.mat.s[,j] < 0.05),j])+0.5
+min(lwr.mat.s[which(p.mat.s[,j] < 0.05),j])-0.5
+
+## plotting small fires first
+par(oma = c(0,3,0,0))
+
 ## Thinning
-plot(x = c(0:12),
-     ylim = c(0,10),
+j <- 3
+plot(x = c(min(lwr.mat.s[which(p.mat.s[,j] < 0.05),j])-0.5:max(upr.mat.s[which(p.mat.s[,j] < 0.05),j])+0.5),
+     ylim = c(0,12),
+     xlim = c(min(lwr.mat.s[which(p.mat.s[,j] < 0.05),j])-0.5,max(upr.mat.s[which(p.mat.s[,j] < 0.05),j])+0.5),
      las = 1,
-     main = "Thinning",
+     main = trts[j],
      cex.axis = 1.5,
-     ylab = "",
+     xlab = "",
      type = "n",
-     xaxt = "n",
-     xlab = "") ## ecoregion
-text(x = 1:length(vec),
-     y = par("usr")[3] - 1.65,
+     yaxt = "n",
+     ylab = "") ## ecoregion
+text(y = 1:length(vec),
+     x = -4.5,
      labels = vec,
      xpd = NA,
-     srt = 35,      ## Rotate the labels by 35 degrees.
+     srt = 0,      ## Rotate the labels by 35 degrees.
      cex = 1)
-abline(h = 1, lty = 2)
+abline(v = 1, lty = 2)
 for(i in 1:length(vec)){
-  points(x = i,
-         y = est.mat[i,3],
+  points(x = ifelse(p.mat.s[i,j] < 0.05,est.mat.s[i,j],NA),
+         y = i,
          col = "black",
+         cex = 0.5,
          pch = 16)
-  segments(y0 = lwr.mat[i,3], x0 = i, 
-           y1 = upr.mat[i,3], x1 = i, 
+  segments(y0 = i, x0 = ifelse(p.mat.s[i,j] < 0.05,lwr.mat.s[i,j],NA), 
+           y1 = i, x1 = ifelse(p.mat.s[i,j] < 0.05,upr.mat.s[i,j],NA), 
+           col = "black",
+           lwd = 1.5)
+}
+
+## Rx Fire
+j <- 2
+plot(x = c(min(lwr.mat.s[which(p.mat.s[,j] < 0.05),j])-0.5:max(upr.mat.s[which(p.mat.s[,j] < 0.05),j])+0.5),
+     ylim = c(0,12),
+     xlim = c(min(lwr.mat.s[which(p.mat.s[,j] < 0.05),j])-0.5,max(upr.mat.s[which(p.mat.s[,j] < 0.05),j])+0.5),
+     las = 1,
+     main = trts[j],
+     cex.axis = 1.5,
+     xlab = "",
+     type = "n",
+     yaxt = "n",
+     ylab = "") ## ecoregion
+text(y = 1:length(vec),
+     x = -1.5,
+     labels = vec,
+     xpd = NA,
+     srt = 0,      ## Rotate the labels by 35 degrees.
+     cex = 1)
+abline(v = 1, lty = 2)
+for(i in 1:length(vec)){
+  points(x = ifelse(p.mat.s[i,j] < 0.05,est.mat.s[i,j],NA),
+         y = i,
+         col = "black",
+         cex = 0.5,
+         pch = 16)
+  segments(y0 = i, x0 = ifelse(p.mat.s[i,j] < 0.05,lwr.mat.s[i,j],NA), 
+           y1 = i, x1 = ifelse(p.mat.s[i,j] < 0.05,upr.mat.s[i,j],NA), 
+           col = "black",
+           lwd = 1.5)
+}
+
+## Thinning + Rx
+j <- 4
+plot(x = c(min(lwr.mat.s[which(p.mat.s[,j] < 0.05),j])-0.5:max(upr.mat.s[which(p.mat.s[,j] < 0.05),j])+0.5),
+     ylim = c(0,12),
+     xlim = c(min(lwr.mat.s[which(p.mat.s[,j] < 0.05),j])-0.5,max(upr.mat.s[which(p.mat.s[,j] < 0.05),j])+0.5),
+     las = 1,
+     main = trts[j],
+     cex.axis = 1.5,
+     xlab = "",
+     type = "n",
+     yaxt = "n",
+     ylab = "") ## ecoregion
+text(y = 1:length(vec),
+     x = -2,
+     labels = vec,
+     xpd = NA,
+     srt = 0,      ## Rotate the labels by 35 degrees.
+     cex = 1)
+abline(v = 1, lty = 2)
+for(i in 1:length(vec)){
+  points(x = ifelse(p.mat.s[i,j] < 0.05,est.mat.s[i,j],NA),
+         y = i,
+         col = "black",
+         cex = 0.5,
+         pch = 16)
+  segments(y0 = i, x0 = ifelse(p.mat.s[i,j] < 0.05,lwr.mat.s[i,j],NA), 
+           y1 = i, x1 = ifelse(p.mat.s[i,j] < 0.05,upr.mat.s[i,j],NA), 
+           col = "black",
+           lwd = 1.5)
+}
+
+## large fires
+upr.mat.l[upr.mat.l == Inf] <- 100 ## making infinite valus very high
+
+## Thinning
+j <- 3
+plot(x = c(min(lwr.mat.l[which(p.mat.l[,j] < 0.05),j])-0.5:max(upr.mat.l[which(p.mat.l[,j] < 0.05),j])+0.5),
+     ylim = c(0,12),
+     xlim = c(min(lwr.mat.l[which(p.mat.l[,j] < 0.05),j])-0.5,max(upr.mat.l[which(p.mat.l[,j] < 0.05),j])+0.5),
+     las = 1,
+     main = trts[j],
+     cex.axis = 1.5,
+     xlab = "",
+     type = "n",
+     yaxt = "n",
+     ylab = "") ## ecoregion
+text(y = 1:length(vec),
+     x = -25,
+     labels = vec,
+     xpd = NA,
+     srt = 0,      ## Rotate the labels by 35 degrees.
+     cex = 1)
+abline(v = 1, lty = 2)
+for(i in 1:length(vec)){
+  points(x = ifelse(p.mat.l[i,j] < 0.05,est.mat.l[i,j],NA),
+         y = i,
+         col = "black",
+         cex = 0.5,
+         pch = 16)
+  segments(y0 = i, x0 = ifelse(p.mat.l[i,j] < 0.05,lwr.mat.l[i,j],NA), 
+           y1 = i, x1 = ifelse(p.mat.l[i,j] < 0.05,upr.mat.l[i,j],NA), 
+           col = "black",
+           lwd = 1.5)
+}
+
+## Rx
+j <- 2
+plot(x = c(min(lwr.mat.l[which(p.mat.l[,j] < 0.05),j])-0.5:max(upr.mat.l[which(p.mat.l[,j] < 0.05),j])+0.5),
+     ylim = c(0,12),
+     xlim = c(min(lwr.mat.l[which(p.mat.l[,j] < 0.05),j])-0.5,max(upr.mat.l[which(p.mat.l[,j] < 0.05),j])+0.5),
+     las = 1,
+     main = trts[j],
+     cex.axis = 1.5,
+     xlab = "",
+     type = "n",
+     yaxt = "n",
+     ylab = "") ## ecoregion
+text(y = 1:length(vec),
+     x = -200,
+     labels = vec,
+     xpd = NA,
+     srt = 0,      ## Rotate the labels by 35 degrees.
+     cex = 1)
+abline(v = 1, lty = 2)
+for(i in 1:length(vec)){
+  points(x = ifelse(p.mat.l[i,j] < 0.05,est.mat.l[i,j],NA),
+         y = i,
+         col = "black",
+         cex = 0.5,
+         pch = 16)
+  segments(y0 = i, x0 = ifelse(p.mat.l[i,j] < 0.05,lwr.mat.l[i,j],NA), 
+           y1 = i, x1 = ifelse(p.mat.l[i,j] < 0.05,upr.mat.l[i,j],NA), 
+           col = "black",
+           lwd = 1.5)
+}
+
+## Both
+j <- 4
+plot(x = c(min(lwr.mat.l[which(p.mat.l[,j] < 0.05),j])-0.5:max(upr.mat.l[which(p.mat.l[,j] < 0.05),j])+0.5),
+     ylim = c(0,12),
+     xlim = c(min(lwr.mat.l[which(p.mat.l[,j] < 0.05),j])-0.5,max(upr.mat.l[which(p.mat.l[,j] < 0.05),j])+0.5),
+     las = 1,
+     main = trts[j],
+     cex.axis = 1.5,
+     xlab = "",
+     type = "n",
+     yaxt = "n",
+     ylab = "") ## ecoregion
+text(y = 1:length(vec),
+     x = -50,
+     labels = vec,
+     xpd = NA,
+     srt = 0,      ## Rotate the labels by 35 degrees.
+     cex = 1)
+abline(v = 1, lty = 2)
+for(i in 1:length(vec)){
+  points(x = ifelse(p.mat.l[i,j] < 0.05,est.mat.l[i,j],NA),
+         y = i,
+         col = "black",
+         cex = 0.5,
+         pch = 16)
+  segments(y0 = i, x0 = ifelse(p.mat.l[i,j] < 0.05,lwr.mat.l[i,j],NA), 
+           y1 = i, x1 = ifelse(p.mat.l[i,j] < 0.05,upr.mat.l[i,j],NA), 
            col = "black",
            lwd = 1.5)
 }
