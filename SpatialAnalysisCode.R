@@ -2595,3 +2595,214 @@ mosaicplot(m4,
 chisq.test(m4)
 fisher.test(m4) ## looks like thinned x burned lines less likely to fail
 
+#### Chi sq. by Ecoregions ####
+## adding ecoregion
+W_Fires <- vect("./mtbs_perimeter_data/WF_Fires.shp")
+W_Fires$Incid_Name <- tolower(gsub("[[:punct:][:space:]]", "", W_Fires$Incid_Name))
+temp <- list.files(path = "./Geographic Subsets/Ecoregions", pattern="*.shp")
+
+for(i in 1:length(temp)){
+  path <- paste("./Geographic Subsets/Ecoregions/", temp[i], sep = "")
+  assign(temp[i], terra::vect(path))
+} ## loading in the shapefiles I want
+rm(i);rm(path)
+
+obj.names <- gsub(".shp", "", temp)
+Engaged_Lines$ecoregion <- NA
+
+for(i in 1:length(temp)){
+  X <- get(temp[i])
+  # X <- terra::buffer(X, 15000) ## buffering the ecoregions, causes some problems with overlaps
+  X_Fires <- crop(W_Fires,X)
+  X_Fires <- values(X_Fires)
+  Engaged_Lines$ecoregion[Engaged_Lines$Incid_Name %in% X_Fires$Incid_Name] <- obj.names[i]
+}
+rm(list = temp)
+rm(temp);rm(X);rm(X_Fires);rm(i);rm(W_Fires)
+
+table(Engaged_Lines$ecoregion)
+table(is.na(Engaged_Lines$ecoregion))
+Engaged_Lines <- Engaged_Lines[complete.cases(Engaged_Lines$ecoregion),]
+
+## automating results
+vec <- unique(Engaged_Lines$ecoregion)
+trts <- unique(Engaged_Lines$trt)
+
+est.mat <-matrix(nrow = length(vec),
+                 ncol = length(trts))
+rownames(est.mat) <- vec
+colnames(est.mat) <- trts
+
+lwr.mat <-matrix(nrow = length(vec),
+                 ncol = length(trts))
+rownames(lwr.mat) <- vec
+colnames(lwr.mat) <- trts
+
+upr.mat <-matrix(nrow = length(vec),
+                 ncol = length(trts))
+rownames(upr.mat) <- vec
+colnames(upr.mat) <- trts
+
+for(i in 1:length(vec)){
+  mat <- matrix(c(nrow(Engaged_Lines[Engaged_Lines$stat == "EH" & Engaged_Lines$trt == "Neither" & Engaged_Lines$ecoregion == vec[i],]),
+                  nrow(Engaged_Lines[Engaged_Lines$stat == "EF" & Engaged_Lines$trt == "Neither" & Engaged_Lines$ecoregion == vec[i],]),
+                  nrow(Engaged_Lines[Engaged_Lines$stat == "EH" & Engaged_Lines$trt == "Prescribed only" & Engaged_Lines$ecoregion == vec[i],]),
+                  nrow(Engaged_Lines[Engaged_Lines$stat == "EF" & Engaged_Lines$trt == "Prescribed only" & Engaged_Lines$ecoregion == vec[i],]),
+                  nrow(Engaged_Lines[Engaged_Lines$stat == "EH" & Engaged_Lines$trt == "Thinning only" & Engaged_Lines$ecoregion == vec[i],]),
+                  nrow(Engaged_Lines[Engaged_Lines$stat == "EF" & Engaged_Lines$trt == "Thinning only" & Engaged_Lines$ecoregion == vec[i],]),
+                  nrow(Engaged_Lines[Engaged_Lines$stat == "EH" & Engaged_Lines$trt == "Thinning and Prescribed" & Engaged_Lines$ecoregion == vec[i],]),
+                  nrow(Engaged_Lines[Engaged_Lines$stat == "EF" & Engaged_Lines$trt == "Thinning and Prescribed" & Engaged_Lines$ecoregion == vec[i],])),
+                nrow = 2, byrow = F)
+  colnames(mat) <- trts
+  rownames(mat) <- c("EH", "EF")
+  mosaicplot(mat,
+             main = vec[i],
+             xlab = "Line Status",
+             ylab = "Treatment")
+  for(j in 1:length(trts)){
+    m2 <- mat[c(1,2),c(j,1)]
+    mosaicplot(m2,
+               main = vec[i],
+               xlab = "Line Status",
+               ylab = "Treatment")
+    est.mat[i,j] <- fisher.test(m2)$estimate
+    lwr.mat[i,j] <- fisher.test(m2)$conf.int[1]
+    upr.mat[i,j] <- fisher.test(m2)$conf.int[2]
+  }
+
+}
+
+# 
+# ## splitting into small and larger fires
+# hist(Engaged_Lines$BurnAcre)
+# smallfires <- Engaged_Lines[Engaged_Lines$BurnAcre < 10000,]
+# smallfires <- smallfires[complete.cases(smallfires$stat),]
+# largefires <- Engaged_Lines[Engaged_Lines$BurnAcre >= 10000,]
+# largefires <- largefires[complete.cases(largefires$stat),]
+# gc()
+# 
+# ## small fires
+# mat <- matrix(c(nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Thinning only",]),
+#                 nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Thinning only",]),
+#                 nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Prescribed only",]),
+#                 nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Prescribed only",]),
+#                 nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Thinning and Prescribed",]),
+#                 nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Thinning and Prescribed",]),
+#                 nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Neither",]),
+#                 nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Neither",])),
+#               nrow = 2, byrow = F)
+# 
+# colnames(mat) <- c("Thin", "Burn", "ThinXBurn","No Trt")
+# rownames(mat) <- c("EH", "EF")
+# 
+# mosaicplot(mat,
+#            main = "",
+#            xlab = "Line Status",
+#            ylab = "Treatment")
+# 
+# chisq.test(mat)
+# 
+# m2 <- mat[c(1,2),c(4,1)]
+# mosaicplot(m2,
+#            main = "",
+#            xlab = "Line Status",
+#            ylab = "Treatment")
+# 
+# chisq.test(m2)
+# fisher.test(m2) ## looks like thinned lines more likely to fail
+# 
+# m3 <- mat[c(1,2),c(4,2)]
+# mosaicplot(m3,
+#            main = "",
+#            xlab = "Line Status",
+#            ylab = "Treatment")
+# 
+# chisq.test(m3)
+# fisher.test(m3) ## looks like burned lines more likely to fail
+# 
+# m4 <- mat[c(1,2),c(4,3)]
+# mosaicplot(m4,
+#            main = "",
+#            xlab = "Line Status",
+#            ylab = "Treatment")
+# 
+# chisq.test(m4)
+# fisher.test(m4) ## looks like thinned x burned lines less likely to fail
+# 
+# ## large fires
+# mat <- matrix(c(nrow(largefires[largefires$stat == "EH" & largefires$trt == "Thinning only",]),
+#                 nrow(largefires[largefires$stat == "EF" & largefires$trt == "Thinning only",]),
+#                 nrow(largefires[largefires$stat == "EH" & largefires$trt == "Prescribed only",]),
+#                 nrow(largefires[largefires$stat == "EF" & largefires$trt == "Prescribed only",]),
+#                 nrow(largefires[largefires$stat == "EH" & largefires$trt == "Thinning and Prescribed",]),
+#                 nrow(largefires[largefires$stat == "EF" & largefires$trt == "Thinning and Prescribed",]),
+#                 nrow(largefires[largefires$stat == "EH" & largefires$trt == "Neither",]),
+#                 nrow(largefires[largefires$stat == "EF" & largefires$trt == "Neither",])),
+#               nrow = 2, byrow = F)
+# 
+# colnames(mat) <- c("Thin", "Burn", "ThinXBurn","No Trt")
+# rownames(mat) <- c("EH", "EF")
+# 
+# mosaicplot(mat,
+#            main = "",
+#            xlab = "Line Status",
+#            ylab = "Treatment")
+# 
+# chisq.test(mat)
+# 
+# m2 <- mat[c(1,2),c(4,1)]
+# mosaicplot(m2,
+#            main = "",
+#            xlab = "Line Status",
+#            ylab = "Treatment")
+# 
+# chisq.test(m2)
+# fisher.test(m2) ## looks like thinned lines more likely to fail
+# 
+# m3 <- mat[c(1,2),c(4,2)]
+# mosaicplot(m3,
+#            main = "",
+#            xlab = "Line Status",
+#            ylab = "Treatment")
+# 
+# chisq.test(m3)
+# fisher.test(m3) ## looks like burned lines more likely to fail
+# 
+# m4 <- mat[c(1,2),c(4,3)]
+# mosaicplot(m4,
+#            main = "",
+#            xlab = "Line Status",
+#            ylab = "Treatment")
+# 
+# chisq.test(m4)
+# fisher.test(m4) ## looks like thinned x burned lines less likely to fail
+
+## plotting
+## Thinning
+plot(x = c(0:12),
+     ylim = c(0,10),
+     las = 1,
+     main = "Thinning",
+     cex.axis = 1.5,
+     ylab = "",
+     type = "n",
+     xaxt = "n",
+     xlab = "") ## ecoregion
+text(x = 1:length(vec),
+     y = par("usr")[3] - 1.65,
+     labels = vec,
+     xpd = NA,
+     srt = 35,      ## Rotate the labels by 35 degrees.
+     cex = 1)
+abline(h = 1, lty = 2)
+for(i in 1:length(vec)){
+  points(x = i,
+         y = est.mat[i,3],
+         col = "black",
+         pch = 16)
+  segments(y0 = lwr.mat[i,3], x0 = i, 
+           y1 = upr.mat[i,3], x1 = i, 
+           col = "black",
+           lwd = 1.5)
+}
+
