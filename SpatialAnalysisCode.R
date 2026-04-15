@@ -876,7 +876,7 @@ Inside.pr <- Inside[match(Perimeter$match, Inside$match),c(13, 8:12)]
 
 Perimeter.pr <- Perimeter.pr[complete.cases(Perimeter.pr),] ## 997 observations
 Inside.pr <- Inside.pr[complete.cases(Inside.pr),] ## 998 observations
-Inside.pr <- Inside.pr[Inside.pr$name %in% Perimeter.pr$name,] ## removing the non-overlapping instance
+Inside.pr <- Inside.pr[Inside.pr$match %in% Perimeter.pr$match,] ## removing the non-overlapping instance
 
 colnames(Perimeter.pr) <- c("name","Perim.tot", "Perim.thin", "Perim.rx", "Perim.b", "Perim.n")
 colnames(Inside.pr) <- c("name", "Inside.tot", "Inside.thin", "Inside.rx", "Inside.b", "Inside.n")
@@ -934,6 +934,25 @@ megafires <- FireTrtHist[FireTrtHist$tot >= 10000,]
 se <- function(x, na.rm = FALSE){sd(x, na.rm = na.rm)/sqrt(length(!is.na(x)))} ## creating a function for standard error
 
 length(unique(FireTrtHist$ecoregion))
+levels(FireTrtHist$ecoregion)
+# "SW_Mountains" - 477 mm 
+# "BlueMnts" - 558 mm 
+# "SouthernRockies"- 588mm
+# "Wasatch"  - 602 mm 
+# "MiddleRockies" - 621 mm 
+# "EastCascades" - 649 mm 
+# "SierraNevada" - 1070mm  
+# "NorthernRockies" - 1200 mm
+# "Klamath" - 1438 mm        
+# "NorthCascades" - 1761 mm  
+# "Cascades" - 1824 mm       
+# "CoastRange" - 2149 mm
+
+FireTrtHist$ecoregion <- factor(FireTrtHist$ecoregion, levels = c("SW_Mountains", "BlueMnts", "SouthernRockies",
+                                                                  "Wasatch","MiddleRockies","EastCascades",
+                                                                  "SierraNevada","NorthernRockies","Klamath",
+                                                                  "NorthCascades","Cascades","CoastRange"))
+
 ## small fires
 df <- data.frame(per.eff = c(smallfires$thin.odds,smallfires$rx.odds,smallfires$b.odds,smallfires$n.odds),
                  trt = c(rep("thin", nrow(smallfires)), rep("rx", nrow(smallfires)), rep("b", nrow(smallfires)), rep("n",nrow(smallfires))),
@@ -941,208 +960,195 @@ df <- data.frame(per.eff = c(smallfires$thin.odds,smallfires$rx.odds,smallfires$
 
 pal1 <- turbo(12, alpha = 0.2)
 pal2 <- turbo(12, alpha = 1)
+eco.names <- c("SW Mtns", "Blue Mtns", "S Rocky Mtns", "Wasatch", "Middle Rocky Mtns", "E Cascades", "Sierra Nevada", "N Rocky Mtns", 
+               "Klamath", "N Cascades", "Cascades", "Coastal Range", "Total")
 
-par(mfrow = c(2,2),oma = c(3, 0, 0, 0))
+par(mfrow = c(2,2),oma = c(0, 6, 0, 0))
 
 ## Thinning
-plot(x = c(0:14),
-     ylim = c(-1.1,1.1),
+plot(y = c(0:14),
+     x = rep(0,length(c(0:14))),
+     xlim = c(-1.1,1.3),
      las = 1,
      main = "Thinning",
      cex.axis = 1.5,
-     ylab = "",
+     xlab = "",
      type = "n",
-     xaxt = "n",
-     xlab = "") ## ecoregion
-text(x = 1:length(levels(FireTrtHist$ecoregion)),
-     y = par("usr")[3] - 0.45,
-     labels = levels(FireTrtHist$ecoregion),
+     yaxt = "n",
+     ylab = "")
+mtext("Fire Perimeter Effect", side = 1, line = 2.5, cex = 1.2)
+text(x = par("usr")[3] - 0.75,
+     y = 1:13,
+     labels = eco.names,
+     col = c(rev(pal2),"black"),
+     adj = 1,
      xpd = NA,
-     srt = 35,      ## Rotate the labels by 35 degrees.
+     srt = 0,      ## Rotate the labels by 0 degrees.
      cex = 1.2)
-abline(h = 0, lty = 2)
+abline(v = 0, lty = 2)
 for(i in 1:length(levels(FireTrtHist$ecoregion))){
-  points(x = jitter(rep(i, length(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]])), factor = 1.2),
-         y = df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]],
-         col = pal1[i],
+  points(y = jitter(rep(i, length(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]])), factor = 1.2),
+         x = df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]],
+         col = rev(pal1)[i],
          pch = 16)
-  points(x = i,
-         y = mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE),
-         col = pal2[i],
+  points(y = i,
+         x = mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE),
+         col = rev(pal2)[i],
          pch = 16)
-  segments(y0 = (mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x0 = i, 
-           y1 = (mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x1 = i, 
-           col = pal2[i],
+  segments(x0 = (mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), y0 = i, 
+           x1 = (mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), y1 = i, 
+           col = rev(pal2)[i],
            lwd = 1.5)
+  text(y = i, x = 1.2, length(which(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]]>-1.1)), cex = 1, col = rev(pal2)[i])
 }
-text(x = 14,
-     y = par("usr")[3] - 0.45,
-     labels = "total",
-     xpd = NA,
-     srt = 35,      ## Rotate the labels by 35 degrees.
-     cex = 1.2)
-points(x = jitter(rep(14, length(df$per.eff[df$trt == "thin"])), factor = 1.2),
-       y = df$per.eff[df$trt == "thin"],
+points(y = jitter(rep(13, length(df$per.eff[df$trt == "thin"])), factor = 1.2),
+       x = df$per.eff[df$trt == "thin"],
        col = rgb(0,0,0, alpha = 0.2),
        pch = 16)
-points(x = 14,
-       y = mean(df$per.eff[df$trt == "thin"], na.rm = TRUE),
+points(y = 13,
+       x = mean(df$per.eff[df$trt == "thin"], na.rm = TRUE),
        col = "black",
        pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x0 = 14, 
-         y1 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x1 = 14, 
+segments(x0 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), y0 = 13, 
+         x1 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), y1 = 13, 
          col = "black",
          lwd = 1.5)
+text(y = 13, x = 1.2, length(which(df$per.eff[df$trt == "thin"]>-1.1)), cex = 1, col = "black")
 
 ## Rx Fire
-plot(x = c(0:14),
-     ylim = c(-1.1,1.1),
+plot(y = c(0:14),
+     x = rep(0,length(c(0:14))),
+     xlim = c(-1.1,1.3),
      las = 1,
      main = "Rx Fire",
      cex.axis = 1.5,
-     ylab = "",
+     xlab = "",
      type = "n",
-     xaxt = "n",
-     xlab = "") ## ecoregion
-text(x = 1:length(levels(FireTrtHist$ecoregion)),
-     y = par("usr")[3] - 0.45,
-     labels = levels(FireTrtHist$ecoregion),
-     xpd = NA,
-     srt = 35,      ## Rotate the labels by 35 degrees.
-     cex = 1.2)
-abline(h = 0, lty = 2)
+     yaxt = "n",
+     ylab = "")
+mtext("Fire Perimeter Effect", side = 1, line = 2.5, cex = 1.2)
+abline(v = 0, lty = 2)
 for(i in 1:length(levels(FireTrtHist$ecoregion))){
-  points(x = jitter(rep(i, length(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]])), factor = 1.2),
-         y = df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]],
-         col = pal1[i],
+  points(y = jitter(rep(i, length(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]])), factor = 1.2),
+         x = df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]],
+         col = rev(pal1)[i],
          pch = 16)
-  points(x = i,
-         y = mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE),
-         col = pal2[i],
+  points(y = i,
+         x = mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE),
+         col = rev(pal2)[i],
          pch = 16)
-  segments(y0 = (mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x0 = i, 
-           y1 = (mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x1 = i, 
-           col = pal2[i],
+  segments(x0 = (mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), y0 = i, 
+           x1 = (mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), y1 = i, 
+           col = rev(pal2)[i],
            lwd = 1.5)
+  text(y = i, x = 1.2, length(which(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]]>-1.1)), cex = 1, col = rev(pal2)[i])
 }
-text(x = 14,
-     y = par("usr")[3] - 0.45,
-     labels = "total",
-     xpd = NA,
-     srt = 35,      ## Rotate the labels by 35 degrees.
-     cex = 1.2)
-points(x = jitter(rep(14, length(df$per.eff[df$trt == "rx"])), factor = 1.2),
-       y = df$per.eff[df$trt == "rx"],
+points(y = jitter(rep(13, length(df$per.eff[df$trt == "rx"])), factor = 1.2),
+       x = df$per.eff[df$trt == "rx"],
        col = rgb(0,0,0, alpha = 0.2),
        pch = 16)
-points(x = 14,
-       y = mean(df$per.eff[df$trt == "rx"], na.rm = TRUE),
+points(y = 13,
+       x = mean(df$per.eff[df$trt == "rx"], na.rm = TRUE),
        col = "black",
        pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x0 = 14, 
-         y1 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x1 = 14, 
+segments(x0 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), y0 = 13, 
+         x1 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), y1 = 13, 
          col = "black",
          lwd = 1.5)
+text(y = 13, x = 1.2, length(which(df$per.eff[df$trt == "rx"]>-1.1)), cex = 1, col = "black")
+
 
 ## Thin and Rx Fire
-plot(x = c(0:14),
-     ylim = c(-1.1,1.1),
+plot(y = c(0:14),
+     x = rep(0,length(c(0:14))),
+     xlim = c(-1.1,1.3),
      las = 1,
      main = "Thin + Rx",
      cex.axis = 1.5,
-     ylab = "",
+     xlab = "",
      type = "n",
-     xaxt = "n",
-     xlab = "") ## ecoregion
-text(x = 1:length(levels(FireTrtHist$ecoregion)),
-     y = par("usr")[3] - 0.45,
-     labels = levels(FireTrtHist$ecoregion),
+     yaxt = "n",
+     ylab = "")
+mtext("Fire Perimeter Effect", side = 1, line = 2.5, cex = 1.2)
+text(x = par("usr")[3] - 0.75,
+     y = 1:13,
+     labels = eco.names,
+     col = c(rev(pal2),"black"),
+     adj = 1,
      xpd = NA,
-     srt = 35,      ## Rotate the labels by 35 degrees.
+     srt = 0,      ## Rotate the labels by 0 degrees.
      cex = 1.2)
-abline(h = 0, lty = 2)
+abline(v = 0, lty = 2)
 for(i in 1:length(levels(FireTrtHist$ecoregion))){
-  points(x = jitter(rep(i, length(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]])), factor = 1.2),
-         y = df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]],
-         col = pal1[i],
+  points(y = jitter(rep(i, length(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]])), factor = 1.2),
+         x = df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]],
+         col = rev(pal1)[i],
          pch = 16)
-  points(x = i,
-         y = mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE),
-         col = pal2[i],
+  points(y = i,
+         x = mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE),
+         col = rev(pal2)[i],
          pch = 16)
-  segments(y0 = (mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x0 = i, 
-           y1 = (mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x1 = i, 
-           col = pal2[i],
+  segments(x0 = (mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), y0 = i, 
+           x1 = (mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), y1 = i, 
+           col = rev(pal2)[i],
            lwd = 1.5)
+  text(y = i, x = 1.2, length(which(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]]>-1.1)), cex = 1, col = rev(pal2)[i])
 }
-text(x = 14,
-     y = par("usr")[3] - 0.45,
-     labels = "total",
-     xpd = NA,
-     srt = 35,      ## Rotate the labels by 35 degrees.
-     cex = 1.2)
-points(x = jitter(rep(14, length(df$per.eff[df$trt == "b"])), factor = 1.2),
-       y = df$per.eff[df$trt == "b"],
+points(y = jitter(rep(13, length(df$per.eff[df$trt == "b"])), factor = 1.2),
+       x = df$per.eff[df$trt == "b"],
        col = rgb(0,0,0, alpha = 0.2),
        pch = 16)
-points(x = 14,
-       y = mean(df$per.eff[df$trt == "b"], na.rm = TRUE),
+points(y = 13,
+       x = mean(df$per.eff[df$trt == "b"], na.rm = TRUE),
        col = "black",
        pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x0 = 14, 
-         y1 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x1 = 14, 
+segments(x0 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), y0 = 13, 
+         x1 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), y1 = 13, 
          col = "black",
          lwd = 1.5)
+text(y = 13, x = 1.2, length(which(df$per.eff[df$trt == "b"]>-1.1)), cex = 1, col = "black")
 
 ## No Treatments
-plot(x = c(0:14),
-     ylim = c(-1.1,1.1),
+plot(y = c(0:14),
+     x = rep(0,length(c(0:14))),
+     xlim = c(-1.1,1.3),
      las = 1,
      main = "No Treatments",
      cex.axis = 1.5,
-     ylab = "",
+     xlab = "",
      type = "n",
-     xaxt = "n",
-     xlab = "") ## ecoregion
-text(x = 1:length(levels(FireTrtHist$ecoregion)),
-     y = par("usr")[3] - 0.45,
-     labels = levels(FireTrtHist$ecoregion),
-     xpd = NA,
-     srt = 35,      ## Rotate the labels by 35 degrees.
-     cex = 1.2)
-abline(h = 0, lty = 2)
+     yaxt = "n",
+     ylab = "")
+mtext("Fire Perimeter Effect", side = 1, line = 2.5, cex = 1.2)
+abline(v = 0, lty = 2)
 for(i in 1:length(levels(FireTrtHist$ecoregion))){
-  points(x = jitter(rep(i, length(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]])), factor = 1.2),
-         y = df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]],
-         col = pal1[i],
+  points(y = jitter(rep(i, length(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]])), factor = 1.2),
+         x = df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]],
+         col = rev(pal1)[i],
          pch = 16)
-  points(x = i,
-         y = mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE),
-         col = pal2[i],
+  points(y = i,
+         x = mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE),
+         col = rev(pal2)[i],
          pch = 16)
-  segments(y0 = (mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x0 = i, 
-           y1 = (mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x1 = i, 
-           col = pal2[i],
+  segments(x0 = (mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), y0 = i, 
+           x1 = (mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), y1 = i, 
+           col = rev(pal2)[i],
            lwd = 1.5)
+  text(y = i, x = 1.2, length(which(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]]>-1.1)), cex = 1, col = rev(pal2)[i])
 }
-text(x = 14,
-     y = par("usr")[3] - 0.45,
-     labels = "total",
-     xpd = NA,
-     srt = 35,      ## Rotate the labels by 35 degrees.
-     cex = 1.2)
-points(x = jitter(rep(14, length(df$per.eff[df$trt == "n"])), factor = 1.2),
-       y = df$per.eff[df$trt == "n"],
+points(y = jitter(rep(13, length(df$per.eff[df$trt == "n"])), factor = 1.2),
+       x = df$per.eff[df$trt == "n"],
        col = rgb(0,0,0, alpha = 0.2),
        pch = 16)
-points(x = 14,
-       y = mean(df$per.eff[df$trt == "n"], na.rm = TRUE),
+points(y = 13,
+       x = mean(df$per.eff[df$trt == "n"], na.rm = TRUE),
        col = "black",
        pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x0 = 14, 
-         y1 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x1 = 14, 
+segments(x0 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), y0 = 13, 
+         x1 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), y1 = 13, 
          col = "black",
          lwd = 1.5)
+text(y = 13, x = 1.2, length(which(df$per.eff[df$trt == "n"]>-1.1)), cex = 1, col = "black")
 
 
 ## summary stats small fires
@@ -1162,6 +1168,8 @@ aggregate(per.eff ~ trt, data = df, se)
 aggregate(per.eff ~ trt + ecoregion, data = df, mean) 
 aggregate(per.eff ~ trt + ecoregion, data = df, se) 
 
+kruskal.test(per.eff ~ trt, data = df)
+
 
 ## large fires
 df <- data.frame(per.eff = c(megafires$thin.odds,megafires$rx.odds,megafires$b.odds,megafires$n.odds),
@@ -1169,204 +1177,189 @@ df <- data.frame(per.eff = c(megafires$thin.odds,megafires$rx.odds,megafires$b.o
                  ecoregion = rep(megafires$ecoregion, 4))
 
 ## Thinning
-plot(x = c(0:14),
-     ylim = c(-1.1,1.1),
+plot(y = c(0:14),
+     x = rep(0,length(c(0:14))),
+     xlim = c(-1.1,1.3),
      las = 1,
      main = "Thinning",
      cex.axis = 1.5,
-     ylab = "",
+     xlab = "",
      type = "n",
-     xaxt = "n",
-     xlab = "") ## ecoregion
-text(x = 1:length(levels(FireTrtHist$ecoregion)),
-     y = par("usr")[3] - 0.45,
-     labels = levels(FireTrtHist$ecoregion),
+     yaxt = "n",
+     ylab = "")
+mtext("Fire Perimeter Effect", side = 1, line = 2.5, cex = 1.2)
+text(x = par("usr")[3] - 0.75,
+     y = 1:13,
+     labels = eco.names,
+     col = c(rev(pal2),"black"),
+     adj = 1,
      xpd = NA,
-     srt = 35,      ## Rotate the labels by 35 degrees.
+     srt = 0,      ## Rotate the labels by 0 degrees.
      cex = 1.2)
-abline(h = 0, lty = 2)
+abline(v = 0, lty = 2)
 for(i in 1:length(levels(FireTrtHist$ecoregion))){
-  points(x = jitter(rep(i, length(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]])), factor = 1.2),
-         y = df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]],
-         col = pal1[i],
+  points(y = jitter(rep(i, length(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]])), factor = 1.2),
+         x = df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]],
+         col = rev(pal1)[i],
          pch = 16)
-  points(x = i,
-         y = mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE),
-         col = pal2[i],
+  points(y = i,
+         x = mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE),
+         col = rev(pal2)[i],
          pch = 16)
-  segments(y0 = (mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x0 = i, 
-           y1 = (mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x1 = i, 
-           col = pal2[i],
+  segments(x0 = (mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), y0 = i, 
+           x1 = (mean(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), y1 = i, 
+           col = rev(pal2)[i],
            lwd = 1.5)
+  text(y = i, x = 1.2, length(which(df$per.eff[df$trt == "thin" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]]>-1.1)), cex = 1, col = rev(pal2)[i])
 }
-text(x = 14,
-     y = par("usr")[3] - 0.45,
-     labels = "total",
-     xpd = NA,
-     srt = 35,      ## Rotate the labels by 35 degrees.
-     cex = 1.2)
-points(x = jitter(rep(14, length(df$per.eff[df$trt == "thin"])), factor = 1.2),
-       y = df$per.eff[df$trt == "thin"],
+points(y = jitter(rep(13, length(df$per.eff[df$trt == "thin"])), factor = 1.2),
+       x = df$per.eff[df$trt == "thin"],
        col = rgb(0,0,0, alpha = 0.2),
        pch = 16)
-points(x = 14,
-       y = mean(df$per.eff[df$trt == "thin"], na.rm = TRUE),
+points(y = 13,
+       x = mean(df$per.eff[df$trt == "thin"], na.rm = TRUE),
        col = "black",
        pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x0 = 14, 
-         y1 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), x1 = 14, 
+segments(x0 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), y0 = 13, 
+         x1 = (mean(df$per.eff[df$trt == "thin"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "thin"], na.rm = TRUE)), y1 = 13, 
          col = "black",
          lwd = 1.5)
+text(y = 13, x = 1.2, length(which(df$per.eff[df$trt == "thin"]>-1.1)), cex = 1, col = "black")
 
 ## Rx Fire
-plot(x = c(0:14),
-     ylim = c(-1.1,1.1),
+plot(y = c(0:14),
+     x = rep(0,length(c(0:14))),
+     xlim = c(-1.1,1.3),
      las = 1,
      main = "Rx Fire",
      cex.axis = 1.5,
-     ylab = "",
+     xlab = "",
      type = "n",
-     xaxt = "n",
-     xlab = "") ## ecoregion
-text(x = 1:length(levels(FireTrtHist$ecoregion)),
-     y = par("usr")[3] - 0.45,
-     labels = levels(FireTrtHist$ecoregion),
-     xpd = NA,
-     srt = 35,      ## Rotate the labels by 35 degrees.
-     cex = 1.2)
-abline(h = 0, lty = 2)
+     yaxt = "n",
+     ylab = "")
+mtext("Fire Perimeter Effect", side = 1, line = 2.5, cex = 1.2)
+abline(v = 0, lty = 2)
 for(i in 1:length(levels(FireTrtHist$ecoregion))){
-  points(x = jitter(rep(i, length(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]])), factor = 1.2),
-         y = df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]],
-         col = pal1[i],
+  points(y = jitter(rep(i, length(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]])), factor = 1.2),
+         x = df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]],
+         col = rev(pal1)[i],
          pch = 16)
-  points(x = i,
-         y = mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE),
-         col = pal2[i],
+  points(y = i,
+         x = mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE),
+         col = rev(pal2)[i],
          pch = 16)
-  segments(y0 = (mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x0 = i, 
-           y1 = (mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x1 = i, 
-           col = pal2[i],
+  segments(x0 = (mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), y0 = i, 
+           x1 = (mean(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), y1 = i, 
+           col = rev(pal2)[i],
            lwd = 1.5)
+  text(y = i, x = 1.2, length(which(df$per.eff[df$trt == "rx" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]]>-1.1)), cex = 1, col = rev(pal2)[i])
 }
-text(x = 14,
-     y = par("usr")[3] - 0.45,
-     labels = "total",
-     xpd = NA,
-     srt = 35,      ## Rotate the labels by 35 degrees.
-     cex = 1.2)
-points(x = jitter(rep(14, length(df$per.eff[df$trt == "rx"])), factor = 1.2),
-       y = df$per.eff[df$trt == "rx"],
+points(y = jitter(rep(13, length(df$per.eff[df$trt == "rx"])), factor = 1.2),
+       x = df$per.eff[df$trt == "rx"],
        col = rgb(0,0,0, alpha = 0.2),
        pch = 16)
-points(x = 14,
-       y = mean(df$per.eff[df$trt == "rx"], na.rm = TRUE),
+points(y = 13,
+       x = mean(df$per.eff[df$trt == "rx"], na.rm = TRUE),
        col = "black",
        pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x0 = 14, 
-         y1 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), x1 = 14, 
+segments(x0 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), y0 = 13, 
+         x1 = (mean(df$per.eff[df$trt == "rx"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "rx"], na.rm = TRUE)), y1 = 13, 
          col = "black",
          lwd = 1.5)
+text(y = 13, x = 1.2, length(which(df$per.eff[df$trt == "rx"]>-1.1)), cex = 1, col = "black")
+
 
 ## Thin and Rx Fire
-plot(x = c(0:14),
-     ylim = c(-1.1,1.1),
+plot(y = c(0:14),
+     x = rep(0,length(c(0:14))),
+     xlim = c(-1.1,1.3),
      las = 1,
      main = "Thin + Rx",
      cex.axis = 1.5,
-     ylab = "",
+     xlab = "",
      type = "n",
-     xaxt = "n",
-     xlab = "") ## ecoregion
-text(x = 1:length(levels(FireTrtHist$ecoregion)),
-     y = par("usr")[3] - 0.45,
-     labels = levels(FireTrtHist$ecoregion),
+     yaxt = "n",
+     ylab = "")
+mtext("Fire Perimeter Effect", side = 1, line = 2.5, cex = 1.2)
+text(x = par("usr")[3] - 0.75,
+     y = 1:13,
+     labels = eco.names,
+     col = c(rev(pal2),"black"),
+     adj = 1,
      xpd = NA,
-     srt = 35,      ## Rotate the labels by 35 degrees.
+     srt = 0,      ## Rotate the labels by 0 degrees.
      cex = 1.2)
-abline(h = 0, lty = 2)
+abline(v = 0, lty = 2)
 for(i in 1:length(levels(FireTrtHist$ecoregion))){
-  points(x = jitter(rep(i, length(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]])), factor = 1.2),
-         y = df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]],
-         col = pal1[i],
+  points(y = jitter(rep(i, length(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]])), factor = 1.2),
+         x = df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]],
+         col = rev(pal1)[i],
          pch = 16)
-  points(x = i,
-         y = mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE),
-         col = pal2[i],
+  points(y = i,
+         x = mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE),
+         col = rev(pal2)[i],
          pch = 16)
-  segments(y0 = (mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x0 = i, 
-           y1 = (mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x1 = i, 
-           col = pal2[i],
+  segments(x0 = (mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), y0 = i, 
+           x1 = (mean(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), y1 = i, 
+           col = rev(pal2)[i],
            lwd = 1.5)
+  text(y = i, x = 1.2, length(which(df$per.eff[df$trt == "b" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]]>-1.1)), cex = 1, col = rev(pal2)[i])
 }
-text(x = 14,
-     y = par("usr")[3] - 0.45,
-     labels = "total",
-     xpd = NA,
-     srt = 35,      ## Rotate the labels by 35 degrees.
-     cex = 1.2)
-points(x = jitter(rep(14, length(df$per.eff[df$trt == "b"])), factor = 1.2),
-       y = df$per.eff[df$trt == "b"],
+points(y = jitter(rep(13, length(df$per.eff[df$trt == "b"])), factor = 1.2),
+       x = df$per.eff[df$trt == "b"],
        col = rgb(0,0,0, alpha = 0.2),
        pch = 16)
-points(x = 14,
-       y = mean(df$per.eff[df$trt == "b"], na.rm = TRUE),
+points(y = 13,
+       x = mean(df$per.eff[df$trt == "b"], na.rm = TRUE),
        col = "black",
        pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x0 = 14, 
-         y1 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), x1 = 14, 
+segments(x0 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), y0 = 13, 
+         x1 = (mean(df$per.eff[df$trt == "b"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "b"], na.rm = TRUE)), y1 = 13, 
          col = "black",
          lwd = 1.5)
+text(y = 13, x = 1.2, length(which(df$per.eff[df$trt == "b"]>-1.1)), cex = 1, col = "black")
 
 ## No Treatments
-plot(x = c(0:14),
-     ylim = c(-1.1,1.1),
+plot(y = c(0:14),
+     x = rep(0,length(c(0:14))),
+     xlim = c(-1.1,1.3),
      las = 1,
      main = "No Treatments",
      cex.axis = 1.5,
-     ylab = "",
+     xlab = "",
      type = "n",
-     xaxt = "n",
-     xlab = "") ## ecoregion
-text(x = 1:length(levels(FireTrtHist$ecoregion)),
-     y = par("usr")[3] - 0.45,
-     labels = levels(FireTrtHist$ecoregion),
-     xpd = NA,
-     srt = 35,      ## Rotate the labels by 35 degrees.
-     cex = 1.2)
-abline(h = 0, lty = 2)
+     yaxt = "n",
+     ylab = "")
+mtext("Fire Perimeter Effect", side = 1, line = 2.5, cex = 1.2)
+abline(v = 0, lty = 2)
 for(i in 1:length(levels(FireTrtHist$ecoregion))){
-  points(x = jitter(rep(i, length(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]])), factor = 1.2),
-         y = df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]],
-         col = pal1[i],
+  points(y = jitter(rep(i, length(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]])), factor = 1.2),
+         x = df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]],
+         col = rev(pal1)[i],
          pch = 16)
-  points(x = i,
-         y = mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE),
-         col = pal2[i],
+  points(y = i,
+         x = mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE),
+         col = rev(pal2)[i],
          pch = 16)
-  segments(y0 = (mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x0 = i, 
-           y1 = (mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), x1 = i, 
-           col = pal2[i],
+  segments(x0 = (mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), y0 = i, 
+           x1 = (mean(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]], na.rm = TRUE)), y1 = i, 
+           col = rev(pal2)[i],
            lwd = 1.5)
+  text(y = i, x = 1.2, length(which(df$per.eff[df$trt == "n" & df$ecoregion == levels(FireTrtHist$ecoregion)[i]]>-1.1)), cex = 1, col = rev(pal2)[i])
 }
-text(x = 14,
-     y = par("usr")[3] - 0.45,
-     labels = "total",
-     xpd = NA,
-     srt = 35,      ## Rotate the labels by 35 degrees.
-     cex = 1.2)
-points(x = jitter(rep(14, length(df$per.eff[df$trt == "n"])), factor = 1.2),
-       y = df$per.eff[df$trt == "n"],
+points(y = jitter(rep(13, length(df$per.eff[df$trt == "n"])), factor = 1.2),
+       x = df$per.eff[df$trt == "n"],
        col = rgb(0,0,0, alpha = 0.2),
        pch = 16)
-points(x = 14,
-       y = mean(df$per.eff[df$trt == "n"], na.rm = TRUE),
+points(y = 13,
+       x = mean(df$per.eff[df$trt == "n"], na.rm = TRUE),
        col = "black",
        pch = 16)
-segments(y0 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x0 = 14, 
-         y1 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), x1 = 14, 
+segments(x0 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)-1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), y0 = 13, 
+         x1 = (mean(df$per.eff[df$trt == "n"], na.rm = TRUE)+1.96*se(df$per.eff[df$trt == "n"], na.rm = TRUE)), y1 = 13, 
          col = "black",
          lwd = 1.5)
+text(y = 13, x = 1.2, length(which(df$per.eff[df$trt == "n"]>-1.1)), cex = 1, col = "black")
 
 
 ## summary stats large fires
@@ -1394,6 +1387,37 @@ colnames(Engaged_Lines)[c(31,32,33,34,36:40,28,29)]
 Engaged_Lines <- Engaged_Lines[,c(31,32,33,34,36:40,28,29)]
 head(Engaged_Lines)
 
+## adding ecoregion
+W_Fires <- vect("./mtbs_perimeter_data/WF_Fires.shp")
+W_Fires$Incid_Name <- tolower(gsub("[[:punct:][:space:]]", "", W_Fires$Incid_Name))
+temp <- list.files(path = "./Geographic Subsets/Ecoregions", pattern="*.shp")
+
+for(i in 1:length(temp)){
+  path <- paste("./Geographic Subsets/Ecoregions/", temp[i], sep = "")
+  assign(temp[i], terra::vect(path))
+} ## loading in the shapefiles I want
+rm(i);rm(path)
+
+obj.names <- gsub(".shp", "", temp)
+Engaged_Lines$ecoregion <- NA
+
+for(i in 1:length(temp)){
+  X <- get(temp[i])
+  # X <- terra::buffer(X, 15000) ## buffering the ecoregions, causes some problems with overlaps
+  X_Fires <- crop(W_Fires,X)
+  X_Fires <- values(X_Fires)
+  Engaged_Lines$ecoregion[Engaged_Lines$Incid_Name %in% X_Fires$Incid_Name] <- obj.names[i]
+}
+rm(list = temp)
+rm(temp);rm(X);rm(X_Fires);rm(i);rm(W_Fires);rm(obj.names)
+
+length(unique(paste(Engaged_Lines$Incid_Name, Engaged_Lines$year, Engaged_Lines$ecoregion)))
+table(Engaged_Lines$year)
+table(Engaged_Lines$ecoregion)
+table(is.na(Engaged_Lines$ecoregion))
+Engaged_Lines <- Engaged_Lines[complete.cases(Engaged_Lines$ecoregion),]
+## removing Engaged_Lines on fires just within ecotone of the ecoregions
+
 str(Engaged_Lines)
 Engaged_Lines$stat <- as.factor(Engaged_Lines$stat)
 Engaged_Lines$year <- as.factor(Engaged_Lines$year)
@@ -1409,7 +1433,8 @@ Engaged_Lines$TS.rx[is.na(Engaged_Lines$TS.rx)] <- 30 ## trying to get the max y
 Engaged_Lines$TS.thin[is.na(Engaged_Lines$TS.thin)] <- 30
 
 backup_dat <- Engaged_Lines
-Engaged_Lines <- Engaged_Lines[,c(1,2,5:11)] ## removing incid name and burn acre (seeing if this runs)
+Engaged_Lines <- Engaged_Lines[,c(1,2,4:11)] ## removing incid name and ecoregion
+
 
 ## Random Forest - western spatial scale
 n <- 100 # number of iterations
@@ -1427,6 +1452,9 @@ TS.rx.y <- matrix(data = NA, nrow = n, ncol = 51)
 TS.thin.x <- matrix(data = NA, nrow = n, ncol = 51)
 TS.thin.y <- matrix(data = NA, nrow = n, ncol = 51)
 
+burnAc.x <- matrix(data = NA, nrow = n, ncol = 51)
+burnAc.y <- matrix(data = NA, nrow = n, ncol = 51)
+
 rf1.res <- matrix(data = NA, nrow = n, ncol = 10000)
 rf2.res <- matrix(data = NA, nrow = n, ncol = 10000)
 
@@ -1435,10 +1463,10 @@ y_hats1.diff <- NA
 y_hats2 <- matrix(data = NA, nrow = n, ncol = 10000)
 y_hats2.diff <- NA
 
-varImp1.summary <- matrix(data = NA, nrow = 31, ncol = n)
+varImp1.summary <- matrix(data = NA, nrow = 31, ncol = n) ## nrow = number of EV + 1 for years
 varImp1.names <- matrix(data = NA, nrow = 31, ncol = n)
-varImp2.summary <- matrix(data = NA, nrow = 5, ncol = n)
-varImp2.names <- matrix(data = NA, nrow = 5, ncol = n)
+varImp2.summary <- matrix(data = NA, nrow = 6, ncol = n) ## nrow = predictors
+varImp2.names <- matrix(data = NA, nrow = 6, ncol = n)
 
 balance1 <- NA
 balance2 <- NA
@@ -1457,10 +1485,6 @@ trt1 <- Engaged_Lines[Engaged_Lines$trt == levels(Engaged_Lines$trt)[1], ]
 trt2 <- Engaged_Lines[Engaged_Lines$trt == levels(Engaged_Lines$trt)[2], ]
 trt3 <- Engaged_Lines[Engaged_Lines$trt == levels(Engaged_Lines$trt)[3], ]
 trt4 <- Engaged_Lines[Engaged_Lines$trt == levels(Engaged_Lines$trt)[4], ]
-
-#### May need to thin years ####
-(table(Engaged_Lines$year)/nrow(Engaged_Lines))*100 ## not balanced
-## talk with Sarah on this, I think it might be okay
 
 par(mfrow = c(1,1))
 ## for loop for the random forest and summary data
@@ -1496,14 +1520,14 @@ for(i in 1:n){
   dat_sub <- as.data.frame(dat_sub)
   dat_sub <- cbind(dat_sub, eigen_res$vectors)
   dat_sub$cell <- NULL
-  colnames(dat_sub)[8:(7+num_eigenvectors)] <- paste("vec",colnames(dat_sub)[8:(7+num_eigenvectors)],sep = "")
+  colnames(dat_sub)[9:(8+num_eigenvectors)] <- paste("vec",colnames(dat_sub)[9:(8+num_eigenvectors)],sep = "")
   dmat <- as.matrix(dist(cbind(dat_sub$y, dat_sub$x))) #
   set.seed(i)
   vec <- order(dmat[sample(1:nrow(dat_sub),1),]) ## getting rows in order of distance to random point generated
   vec <- vec[c(1:(0.75*nrow(dat_sub)))]
   
-  dat_sub1 <- dat_sub[,c(1,2,8:37)]
-  dat_sub2 <- dat_sub[,c(1,3:7)]
+  dat_sub1 <- dat_sub[,c(1,2,9:38)]
+  dat_sub2 <- dat_sub[,c(1,3:8)]
   
   training_set <- dat_sub1[vec,]
   balance1[i] <- 1-length(which(training_set$stat == "EF"))/length(training_set$stat)
@@ -1592,6 +1616,7 @@ for(i in 1:n){
   prop.thin <- partialPlot(rf2, training_set, x.var = prop.thin)
   TS.rx <- partialPlot(rf2, training_set, x.var = TS.rx)
   TS.thin <- partialPlot(rf2, training_set, x.var = TS.thin)
+  burnAc <- partialPlot(rf2, training_set, x.var = BurnAcre)
   
   prop.rx.x[i,1:length(prop.rx$x)] <- prop.rx$x
   prop.rx.y[i,1:length(prop.rx$y)] <- prop.rx$y
@@ -1601,6 +1626,8 @@ for(i in 1:n){
   TS.rx.y[i,1:length(TS.rx$y)] <- TS.rx$y
   TS.thin.x[i,1:length(TS.thin$x)] <- TS.thin$x
   TS.thin.y[i,1:length(TS.thin$y)] <- TS.thin$y
+  burnAc.x[i,1:length(burnAc$x)] <- burnAc$x
+  burnAc.y[i,1:length(burnAc$y)] <- burnAc$x
   gc()
   
   progress <- i/n*100
@@ -1649,9 +1676,9 @@ mean(balance2);min(balance2);max(balance2) ## average residual error from rf1 (p
 # [1] -0.01630067
 # [1] 0.05184733
 
-error.mean <- apply(error1,2,mean)
+error.mean.1 <- apply(error1,2,mean)
 min(error1);max(error1)
-plot(error.mean, type = "n",
+plot(error.mean.1, type = "n",
      ylim = c(0,max(error1)+0.05),
      las = 1,
      xlab = "Tree",
@@ -1660,13 +1687,13 @@ plot(error.mean, type = "n",
 for(i in 1:n){
   lines(error1[i,], col = rgb(0,0,0,alpha = 0.25))
 }
-lines(error.mean, type = "l", col = "firebrick", lty = 2, lwd= 2)
-mean(error.mean)*100 # 31.64696
+lines(error.mean.1, type = "l", col = "firebrick", lty = 2, lwd= 2)
+mean(error.mean.1)*100 # 31.64696
 # text(x = 300, y = 0.18, "Average Error = __%")
 
-error.mean <- apply(error2,2,mean)
+error.mean.2 <- apply(error2,2,mean)
 min(error2);max(error2)
-plot(error.mean, type = "n",
+plot(error.mean.2, type = "n",
      ylim = c(0,max(error1)+0.05),
      las = 1,
      xlab = "Tree",
@@ -1675,8 +1702,8 @@ plot(error.mean, type = "n",
 for(i in 1:n){
   lines(error2[i,], col = rgb(0,0,0,alpha = 0.25))
 }
-lines(error.mean, type = "l", col = "firebrick", lty = 2, lwd= 2)
-mean(error.mean)*100 # 18.74919
+lines(error.mean.2, type = "l", col = "firebrick", lty = 2, lwd= 2)
+mean(error.mean.2)*100 # 18.74919
 # text(x = 300, y = 0.18, "Average Error = __%")
 
 par(mfrow = c(1,1))
@@ -1737,26 +1764,26 @@ segments(x0 = varImp.plotting1$min, y0 = 1:2, x1 = varImp.plotting1$max, y1 = 1:
 # abline(v = 10, lty = 2)
 
 ## VarImp Plot 2
-varImp.plotting2 <- data.frame(name = c(varImp2.names[c(1:5),1]),
-                              mean = c(apply(varImp2.summary[c(1:5),],1,mean)),
-                              min = c(apply(varImp2.summary[c(1:5),],1,min)),
-                              max = c(apply(varImp2.summary[c(1:5),],1,max)))
+varImp.plotting2 <- data.frame(name = c(varImp2.names[c(1:6),1]),
+                              mean = c(apply(varImp2.summary[c(1:6),],1,mean)),
+                              min = c(apply(varImp2.summary[c(1:6),],1,min)),
+                              max = c(apply(varImp2.summary[c(1:6),],1,max)))
 varImp.plotting2 <- varImp.plotting2[order(varImp.plotting2$mean, decreasing = FALSE),]
 
 min(varImp.plotting2$min)
 max(varImp.plotting2$max)
 # par(mfrow = c(1,1), oma = c(0,3,0,0))
 plot(varImp.plotting2$mean,
-     ylim = c(0,6),
+     ylim = c(0,7),
      xlim = c(0,max(varImp.plotting2$max)), ## max of varImp.plotting$max + a few
      las = 1,
      type = "n",
      ylab = "",
      yaxt = "n",
      xlab = "Mean Decrease Accuracy")
-axis(2, at = c(1:5), labels = varImp.plotting2$name, cex.axis = 1, las = 2)
-points(x = varImp.plotting2$mean,y = 1:5, col = "black", cex = 1, pch = 16)
-segments(x0 = varImp.plotting2$min, y0 = 1:5, x1 = varImp.plotting2$max, y1 = 1:5, col = "black", lwd = 1.5)
+axis(2, at = c(1:6), labels = varImp.plotting2$name, cex.axis = 1, las = 2)
+points(x = varImp.plotting2$mean,y = 1:6, col = "black", cex = 1, pch = 16)
+segments(x0 = varImp.plotting2$min, y0 = 1:6, x1 = varImp.plotting2$max, y1 = 1:6, col = "black", lwd = 1.5)
 # abline(v = 10, lty = 2)
 
 ## Partial Dependence Plots
@@ -1764,15 +1791,13 @@ segments(x0 = varImp.plotting2$min, y0 = 1:5, x1 = varImp.plotting2$max, y1 = 1:
 # FD$LineInt <- as.integer(FD$LineStat)-1
 # FD$LineInt[FD$LineInt == 0] <- -0.25
 # FD$LineInt[FD$LineInt == 1] <- 1.25
+# prop.rx.y <- 1-(1/(1+exp(-prop.rx.y)))*2
+# prop.thin.y <- 1-(1/(1+exp(-prop.thin.y)))*2
+# TS.rx.y <- 1-(1/(1+exp(-TS.rx.y)))*2
+# TS.thin.y <- 1-(1/(1+exp(-TS.thin.y)))*2
 
-prop.rx.y <- 1-(1/(1+exp(-prop.rx.y)))*2
-prop.thin.y <- 1-(1/(1+exp(-prop.thin.y)))*2
-TS.rx.y <- 1-(1/(1+exp(-TS.rx.y)))*2
-TS.thin.y <- 1-(1/(1+exp(-TS.thin.y)))*2
 gc()
-
-par(mfrow = c(2,2))
-
+par(mfrow = c(1,1))
 plot(prop.rx.x[1,], prop.rx.y[1,],
      type = "l",
      ylim = c(-1.25,1.25),
@@ -1852,6 +1877,28 @@ TS.thin.x.mean <- apply(TS.thin.x,2,mean, na.rm = T)
 TS.thin.y.mean <- apply(TS.thin.y,2,mean, na.rm = T)
 lo <- loess(TS.thin.y.mean~TS.thin.x.mean)
 lines(y = predict(lo), x = TS.thin.x.mean[1:length(predict(lo))], col = "red", lwd = 2)
+
+plot(burnAc.x[1,], burnAc.y[1,],
+     type = "l",
+     ylim = c(-1.25,1.25),
+     col = rgb(0,0,0,0.25),
+     main = "",
+     yaxt = "n",
+     cex.axis = 1.5,
+     cex.lab = 1.5,
+     las = 1,
+     xlab = "Burned Acres",
+     ylab = "")
+axis(2, at = c(-1,0,1), line = 1, las = 1,tick = T, labels = c("Type 1", "Correct", "Type 2"), cex.axis = 1.5)
+for(i in 2:n)(
+  lines(burnAc.x[i,], burnAc.y[i,], col = rgb(0,0,0,0.25))
+)
+burnAc.x.mean <- apply(burnAc.x,2,mean, na.rm = T)
+burnAc.y.mean <- apply(burnAc.y,2,mean, na.rm = T)
+lo <- loess(burnAc.y.mean~burnAc.x.mean)
+lines(y = predict(lo), x = burnAc.x.mean[1:length(predict(lo))], col = "red", lwd = 2)
+
+
 par(mfrow = c(1,1))
 hist(round(training_set$stat, 0),
      main = "Example Training Data Western USA",
@@ -1863,739 +1910,833 @@ hist(training_set$stat,
      xlab = "Error Category")
 
 
-#### splitting engaged lines data into ecoregion scales ####
-## determine which ecoregions I need
-temp <- list.files(path = "./Geographic Subsets/Ecoregions", pattern="*.shp") ## creating a vector that has all the files in the working directory with .xlsx extensions
-
-for(i in 1:length(temp)){
-  path <- paste("./Geographic Subsets/Ecoregions/", temp[i], sep = "")
-  assign(temp[i], terra::vect(path))
-} ## loading in the shapefiles I want
-rm(i);rm(path)
-
-plot(BlueMnts.shp)
-Engaged_Lines <- read.csv("Engaged_Lines_DisturbanceHistory.csv")
-
-EL <- Engaged_Lines
-Engaged_Lines <- vect(EL, geom = c("x","y"), crs = crs(SouthernRockies.shp))
-gc()
-
-obj.names <- gsub(".shp", "", temp)
-# Loop through each object
-for (i in 1:length(temp)) {
-  # Get the object from the global environment
-  X <- get(temp[i])
-  
-  # Your original code with X
-  X_Lines <- crop(Engaged_Lines, X)
-  X_Lines_df <- as.data.frame(X_Lines, geom = c("XY"))
-  
-  # Create filename using the object name
-  
-  filename <- paste0("Engaged_Lines_", obj.names[i], ".csv")
-  write.csv(X_Lines_df, paste0("./Geographic Subsets/Ecoregions/",filename))
-  
-  # Optional: print progress
-  cat("Processed:", obj.names[i], "\n")
-}
-## no fires in the Puget Lowlands (not too strange)
-gc()
-rm(list = ls())
-gc()
-
 #### Random Forests - Ecoregion Scales ####
-## NEED TO UPDATE DATA READ IN
-sr_Lines_df <- read.csv("D:/Outside Boundary/Engaged_Lines_sr.csv")
-table(sr_Lines_df$stat)
-(table(sr_Lines_df$stat)/nrow(sr_Lines_df))*100
-(table(sr_Lines_df$year)/nrow(sr_Lines_df))*100
-(table(sr_Lines_df$trt)/nrow(sr_Lines_df))*100
-hist(sr_Lines_df$prop.rx[sr_Lines_df$prop.rx > 0])
-hist(sr_Lines_df$prop.thin[sr_Lines_df$prop.thin > 0])
-hist(sr_Lines_df$TS.rx[sr_Lines_df$TS.rx < 30])
-hist(sr_Lines_df$TS.thin[sr_Lines_df$TS.thin < 30])
-par(mfrow = c(1,1))
+length(unique(backup_dat$ecoregion))
+ecoregion <-  unique(backup_dat$ecoregion)
+for(j in 1:length(ecoregion)){
+  print(ecoregion[j])
+  print(table(backup_dat$trt[backup_dat$ecoregion == ecoregion[j]]))
+}
+## Wasatch has no treatment history on fire lines
+## cannot be included, will remove from dataset
 
-prop.rx.x <- matrix(data = NA, nrow = n, ncol = 51)
-prop.rx.y <- matrix(data = NA, nrow = n, ncol = 51)
+backup_dat_no_W <- backup_dat[backup_dat$ecoregion != "Wasatch",]
 
-prop.thin.x <- matrix(data = NA, nrow = n, ncol = 51)
-prop.thin.y <- matrix(data = NA, nrow = n, ncol = 51)
 
-TS.rx.x <- matrix(data = NA, nrow = n, ncol = 51)
-TS.rx.y <- matrix(data = NA, nrow = n, ncol = 51)
+global.results <- matrix(data = NA, nrow = length(unique(backup_dat_no_W$ecoregion))+1, ncol = 21) 
+rownames(global.results) <- c("WestWide", unique(backup_dat_no_W$ecoregion))
 
-TS.thin.x <- matrix(data = NA, nrow = n, ncol = 51)
-TS.thin.y <- matrix(data = NA, nrow = n, ncol = 51)
+global.results[1,1] <- mean(y_hats1.diff)
+global.results[1,2] <- min(y_hats1.diff)
+global.results[1,3] <- max(y_hats1.diff)
+global.results[1,4] <- mean(y_hats2.diff)
+global.results[1,5] <- min(y_hats2.diff)
+global.results[1,6] <- max(y_hats2.diff)
+global.results[1,7] <- mean(error.mean.1)
+global.results[1,8] <- min(error.mean.1)
+global.results[1,9] <- max(error.mean.1)
+global.results[1,10] <- mean(error.mean.2)
+global.results[1,11] <- min(error.mean.2)
+global.results[1,12] <- max(error.mean.2)
+global.results[1,13] <- mean(AUC.val1)
+global.results[1,14] <- min(AUC.val1)
+global.results[1,15] <- max(AUC.val1)
+global.results[1,16] <- mean(AUC.val2)
+global.results[1,17] <- min(AUC.val2)
+global.results[1,18] <- max(AUC.val2)
+global.results[1,19] <- mean(r2.mean)
+global.results[1,20] <- min(r2.mean)
+global.results[1,21] <- max(r2.mean)
 
-rf1.res <- matrix(data = NA, nrow = n, ncol = 10000)
-rf2.res <- matrix(data = NA, nrow = n, ncol = 10000)
+varImp.list.rf1 <- vector("list", 12)
+varImp.list.rf2 <- vector("list", 12)
+varImp.list.rf1[[12]] <- varImp.plotting1
+varImp.list.rf2[[12]] <- varImp.plotting2
 
-y_hats1 <- matrix(data = NA, nrow = n, ncol = 10000)
-y_hats1.diff <- NA
-y_hats2 <- matrix(data = NA, nrow = n, ncol = 10000)
-y_hats2.diff <- NA
+ecoregion <-  unique(backup_dat_no_W$ecoregion)
+for(j in 1:length(ecoregion)){
 
-varImp1.summary <- matrix(data = NA, nrow = 31, ncol = n)
-varImp1.names <- matrix(data = NA, nrow = 31, ncol = n)
-varImp2.summary <- matrix(data = NA, nrow = 5, ncol = n)
-varImp2.names <- matrix(data = NA, nrow = 5, ncol = n)
-
-balance1 <- NA
-balance2 <- NA
-error1 <- matrix(data = NA, nrow = n, ncol = 500) ## ncol = ntree
-error2 <- matrix(data = NA, nrow = n, ncol = 500) ## ncol = ntree
-r2_SR <- matrix(data = NA, nrow = n, ncol = 500)
-
-AUC.val1_SR <- NA
-AUC.val2_SR <- NA
-
-r <- rast("./LandFire TIFs/WF_dist.tif")
-blank <- rast(ext(r), resolution=100, vals=NA) ## gonna expand this
-crs(blank) <- crs(r)
-
-str(sr_Lines_df)
-sr_Lines_df$X <- NULL
-sr_Lines_df$stat <- as.factor(sr_Lines_df$stat)
-sr_Lines_df$year <- as.factor(sr_Lines_df$year)
-sr_Lines_df$trt <- as.factor(sr_Lines_df$trt)
-sr_Lines_df$x <- as.numeric(sr_Lines_df$x)
-sr_Lines_df$y <- as.numeric(sr_Lines_df$y)
-
-trt1 <- sr_Lines_df[sr_Lines_df$trt == levels(sr_Lines_df$trt)[1], ]
-trt2 <- sr_Lines_df[sr_Lines_df$trt == levels(sr_Lines_df$trt)[2], ]
-trt3 <- sr_Lines_df[sr_Lines_df$trt == levels(sr_Lines_df$trt)[3], ]
-trt4 <- sr_Lines_df[sr_Lines_df$trt == levels(sr_Lines_df$trt)[4], ]
-
-## for loop for the random forest and summary data
-for(i in 1:n){
-  set.seed(i)
-  trt1_sample <- trt1[sample(nrow(trt1), 5000, replace = TRUE), ]
-  set.seed(i)
-  trt2_sample <- trt2[sample(nrow(trt2), 5000, replace = TRUE), ]
-  set.seed(i)
-  trt3_sample <- trt3[sample(nrow(trt3), 5000, replace = TRUE), ]
-  set.seed(i)
-  trt4_sample <- trt4[sample(nrow(trt4), 5000, replace = TRUE), ]
-  dat_sub <- rbind(trt1_sample,trt2_sample,trt3_sample,trt4_sample)
-  table(dat_sub$stat)
-  level1 <- dat_sub[dat_sub$stat == levels(dat_sub$stat)[1], ]
-  level2 <- dat_sub[dat_sub$stat == levels(dat_sub$stat)[2], ]
-  set.seed(i)
-  EF_sample <- level1[sample(nrow(level1), 5000, replace = TRUE), ]
-  set.seed(i)
-  EH_sample <- level2[sample(nrow(level2), 5000, replace = TRUE), ]
-  dat_sub <- rbind(EF_sample, EH_sample)
-  table(dat_sub$stat)
-  table(dat_sub$trt)
-  dat.sp <- vect(dat_sub, geom = c("x","y"))
-  dat.cell <- extract(blank, dat.sp, cell = TRUE)
-  dat_sub$cell <- dat.cell$cell
-  dat_sub <- dat_sub %>% group_by(cell) %>% sample_n(size=1) # sample one point per 100 x 100 m cell
-  dat_sub <- vect(dat_sub, geom = c("x","y"), crs = crs(blank))
-  dat_sub <- project(dat_sub, "EPSG:4326")
-  dmat <- as.matrix(dist(cbind(geom(dat_sub)[,4], geom(dat_sub)[,3]))) ## turning the coordinates of each plot into a distance matrix
-  dmat <- dmat *111139 ## degrees to meters (approximately)
-  eigen_res <- RSpectra::eigs_sym(as.matrix(dmat), k = num_eigenvectors)
-  dat_sub <- as.data.frame(dat_sub)
-  dat_sub <- cbind(dat_sub, eigen_res$vectors)
-  dat_sub$cell <- NULL
-  colnames(dat_sub)[8:(7+num_eigenvectors)] <- paste("vec",colnames(dat_sub)[8:(7+num_eigenvectors)],sep = "")
-  dmat <- as.matrix(dist(cbind(dat_sub$y, dat_sub$x))) #
-  set.seed(i)
-  vec <- order(dmat[sample(1:nrow(dat_sub),1),]) ## getting rows in order of distance to random point generated
-  vec <- vec[c(1:(0.75*nrow(dat_sub)))]
+  Engaged_Lines <- backup_dat_no_W[backup_dat_no_W$ecoregion == ecoregion[j],]
+  Engaged_Lines <- Engaged_Lines[,c(1,2,4:11)] ## removing incid name and ecoregion
   
-  dat_sub1 <- dat_sub[,c(1,2,8:37)]
-  dat_sub2 <- dat_sub[,c(1,3:7)]
+  n <- 100 # number of iterations
+  num_eigenvectors <- 30 # number of eigenvectors
   
-  training_set <- dat_sub1[vec,]
-  balance1[i] <- 1-length(which(training_set$stat == "EF"))/length(training_set$stat)
-  testing_set <- dat_sub1[-vec,]
-  set.seed(i)
-  train_index <- createDataPartition(y = dat_sub1$stat, p = 0.75, list = FALSE)
-  training_set <- dat_sub1[train_index,]
-  dat_sub2 <- dat_sub2[-vec,]
+  prop.rx.x <- matrix(data = NA, nrow = n, ncol = 51)
+  prop.rx.y <- matrix(data = NA, nrow = n, ncol = 51)
   
-  set.seed(i)
-  rf1 <- randomForest(stat~.,
-                      data = training_set,
-                      ntree = 500,
-                      maxnodes = 75,
-                      maximize = TRUE,
-                      trControl = train_control,
-                      importance = TRUE,
-                      keep.forest = TRUE,
-                      keep.inbag = TRUE) ## making the rf object
-  y_hats1[i,1:nrow(testing_set)] <- predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2]
-  y_hats1.diff[i] <- mean(as.numeric(y_hats1[i,1:nrow(testing_set)]) - (as.numeric(testing_set$stat)-1))
-  varImp1.summary[,i] <- rf1$importance[,3] ## Mean decrease accuracy
-  varImp1.names[,i] <- rownames(rf1$importance)
-  rf1.res[i,c(1:length(testing_set$stat))] <- predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2] - (as.numeric(testing_set$stat)-1)
-  error1[i,] <- rf1$err.rate[,1] ## out of bag error
-  rf.roc <- suppressMessages(roc(training_set$stat, rf1$votes[,2]))
-  AUC.val1[i] <- as.numeric(auc(rf.roc))
+  prop.thin.x <- matrix(data = NA, nrow = n, ncol = 51)
+  prop.thin.y <- matrix(data = NA, nrow = n, ncol = 51)
   
-  ## second model predicting the residuals
-  res4pred <- rf1.res[i,!is.na(rf1.res[i,])]
-  length(res4pred)
+  TS.rx.x <- matrix(data = NA, nrow = n, ncol = 51)
+  TS.rx.y <- matrix(data = NA, nrow = n, ncol = 51)
   
-  dat_sub2$obs <- as.numeric(dat_sub2$stat)-1
-  dat_sub2$pred <- as.numeric(predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2])
-  dat_sub2$stat <- as.numeric(res4pred)
-  dat_sub2$obs <- NULL
-  dat_sub2$pred <- NULL
+  TS.thin.x <- matrix(data = NA, nrow = n, ncol = 51)
+  TS.thin.y <- matrix(data = NA, nrow = n, ncol = 51)
   
-  ## balancing dat_sub2 - requires upsampling
-  type1 <- dat_sub2[round(dat_sub2$stat, 0) == -1, ]
-  correct <- dat_sub2[round(dat_sub2$stat, 0) == 0, ]
-  type2 <- dat_sub2[round(dat_sub2$stat, 0) == 1, ]
+  burnAc.x <- matrix(data = NA, nrow = n, ncol = 51)
+  burnAc.y <- matrix(data = NA, nrow = n, ncol = 51)
   
-  set.seed(i)
-  type1 <- type1[sample(nrow(type1), 1000, replace = TRUE), ]
-  set.seed(i)
-  correct <- correct[sample(nrow(correct), 1000, replace = TRUE), ]
-  set.seed(i)
-  type2 <- type2[sample(nrow(type2), 1000, replace = TRUE), ]
-  dat_sub2 <- rbind(type1,correct,type2)
+  rf1.res <- matrix(data = NA, nrow = n, ncol = 10000)
+  rf2.res <- matrix(data = NA, nrow = n, ncol = 10000)
   
-  set.seed(i)
-  vec <- order(dmat[sample(1:nrow(dat_sub2),1),]) ## getting rows in order of distance to random point generated
-  vec <- vec[c(1:(0.75*nrow(dat_sub2)))]
+  y_hats1 <- matrix(data = NA, nrow = n, ncol = 10000)
+  y_hats1.diff <- NA
+  y_hats2 <- matrix(data = NA, nrow = n, ncol = 10000)
+  y_hats2.diff <- NA
   
-  training_set <- dat_sub2[vec,]
-  balance2[i] <- mean(dat_sub2$stat)
-  testing_set <- dat_sub2[-vec,]
-  set.seed(i)
-  train_index <- createDataPartition(y = dat_sub2$stat, p = 0.75, list = FALSE)
-  training_set <- dat_sub2[train_index,]
+  varImp1.summary <- matrix(data = NA, nrow = 31, ncol = n) ## nrow = number of EV + 1 for years
+  varImp1.names <- matrix(data = NA, nrow = 31, ncol = n)
+  varImp2.summary <- matrix(data = NA, nrow = 6, ncol = n) ## nrow = predictors
+  varImp2.names <- matrix(data = NA, nrow = 6, ncol = n)
   
-  set.seed(i)
-  rf2 <- randomForest(stat~.,
-                      data = training_set,
-                      ntree = 500,
-                      maxnodes = 75,
-                      maximize = TRUE,
-                      trControl = train_control,
-                      importance = TRUE,
-                      keep.forest = TRUE,
-                      keep.inbag = TRUE) ## making the rf object
-  y_hats2[i,1:nrow(testing_set)] <- predict(object = rf2, newdata = testing_set[, -1])
-  y_hats2.diff[i] <- mean(as.numeric(y_hats2[i,1:nrow(testing_set)]) - as.numeric(testing_set$stat))
-  varImp2.summary[,i] <- rf2$importance[,1]
-  varImp2.names[,i] <- rownames(rf2$importance)
-  rf2.res[i,c(1:length(rf2$predicted))] <- as.numeric(rf2$predicted) - as.numeric(training_set$stat)
-  error2[i,] <- rf2$mse
-  training_set$bin.out <- round(training_set$stat,0)
-  rf.roc <- suppressMessages(  multiclass.roc(training_set$bin.out, rf2$predicted))
-  AUC.val2[i] <- as.numeric(auc(rf.roc))
-  r2[i,] <- rf2$rsq
+  balance1 <- NA
+  balance2 <- NA
+  error1 <- matrix(data = NA, nrow = n, ncol = 500) ## ncol = ntree
+  error2 <- matrix(data = NA, nrow = n, ncol = 500) ## ncol = ntree
+  r2 <- matrix(data = NA, nrow = n, ncol = 500)
   
-  training_set <- as.data.frame(training_set)
-  prop.rx <- partialPlot(rf2, training_set, x.var = prop.rx)
-  prop.thin <- partialPlot(rf2, training_set, x.var = prop.thin)
-  TS.rx <- partialPlot(rf2, training_set, x.var = TS.rx)
-  TS.thin <- partialPlot(rf2, training_set, x.var = TS.thin)
+  AUC.val1 <- NA
+  AUC.val2 <- NA
   
-  prop.rx.x[i,1:length(prop.rx$x)] <- prop.rx$x
-  prop.rx.y[i,1:length(prop.rx$y)] <- prop.rx$y
-  prop.thin.x[i,1:length(prop.thin$x)] <- prop.thin$x
-  prop.thin.y[i,1:length(prop.thin$y)] <- prop.thin$y
-  TS.rx.x[i,1:length(TS.rx$x)] <- TS.rx$x
-  TS.rx.y[i,1:length(TS.rx$y)] <- TS.rx$y
-  TS.thin.x[i,1:length(TS.thin$x)] <- TS.thin$x
-  TS.thin.y[i,1:length(TS.thin$y)] <- TS.thin$y
-  gc()
+  r <- rast("./LandFire TIFs/WF_dist.tif")
+  blank <- rast(ext(r), resolution=100, vals=NA) ## gonna expand this
+  crs(blank) <- crs(r)
   
-  progress <- i/n*100
-  if (progress %% 5 == 0) {
-    print(paste(progress, "% done", sep = ""))
+  trt1 <- Engaged_Lines[Engaged_Lines$trt == levels(Engaged_Lines$trt)[1], ]
+  trt2 <- Engaged_Lines[Engaged_Lines$trt == levels(Engaged_Lines$trt)[2], ]
+  trt3 <- Engaged_Lines[Engaged_Lines$trt == levels(Engaged_Lines$trt)[3], ]
+  trt4 <- Engaged_Lines[Engaged_Lines$trt == levels(Engaged_Lines$trt)[4], ]
+  
+  par(mfrow = c(1,1))
+  ## for loop for the random forest and summary data
+  for(i in 1:n){
+    set.seed(i)
+    trt1_sample <- trt1[sample(nrow(trt1), 5000, replace = TRUE), ]
+    set.seed(i)
+    trt2_sample <- trt2[sample(nrow(trt2), 5000, replace = TRUE), ]
+    set.seed(i)
+    trt3_sample <- trt3[sample(nrow(trt3), 5000, replace = TRUE), ]
+    set.seed(i)
+    trt4_sample <- trt4[sample(nrow(trt4), 5000, replace = TRUE), ]
+    dat_sub <- rbind(trt1_sample,trt2_sample,trt3_sample,trt4_sample)
+    table(dat_sub$stat)
+    level1 <- dat_sub[dat_sub$stat == levels(dat_sub$stat)[1], ]
+    level2 <- dat_sub[dat_sub$stat == levels(dat_sub$stat)[2], ]
+    set.seed(i)
+    EF_sample <- level1[sample(nrow(level1), 5000, replace = TRUE), ]
+    set.seed(i)
+    EH_sample <- level2[sample(nrow(level2), 5000, replace = TRUE), ]
+    dat_sub <- rbind(EF_sample, EH_sample)
+    table(dat_sub$stat)
+    table(dat_sub$trt)
+    dat.sp <- vect(dat_sub, geom = c("x","y"))
+    dat.cell <- extract(blank, dat.sp, cell = TRUE)
+    dat_sub$cell <- dat.cell$cell
+    dat_sub <- dat_sub %>% group_by(cell) %>% sample_n(size=1) # sample one point per 100 x 100 m cell
+    dat_sub <- vect(dat_sub, geom = c("x","y"), crs = crs(blank))
+    dat_sub <- project(dat_sub, "EPSG:4326")
+    dmat <- as.matrix(dist(cbind(geom(dat_sub)[,4], geom(dat_sub)[,3]))) ## turning the coordinates of each plot into a distance matrix
+    dmat <- dmat *111139 ## degrees to meters (approximately)
+    eigen_res <- RSpectra::eigs_sym(as.matrix(dmat), k = num_eigenvectors)
+    dat_sub <- as.data.frame(dat_sub)
+    dat_sub <- cbind(dat_sub, eigen_res$vectors)
+    dat_sub$cell <- NULL
+    colnames(dat_sub)[9:(8+num_eigenvectors)] <- paste("vec",colnames(dat_sub)[9:(8+num_eigenvectors)],sep = "")
+    dmat <- as.matrix(dist(cbind(dat_sub$y, dat_sub$x))) #
+    set.seed(i)
+    vec <- order(dmat[sample(1:nrow(dat_sub),1),]) ## getting rows in order of distance to random point generated
+    vec <- vec[c(1:(0.75*nrow(dat_sub)))]
+    
+    dat_sub1 <- dat_sub[,c(1,2,9:38)]
+    dat_sub2 <- dat_sub[,c(1,3:8)]
+    
+    training_set <- dat_sub1[vec,]
+    balance1[i] <- 1-length(which(training_set$stat == "EF"))/length(training_set$stat)
+    testing_set <- dat_sub1[-vec,]
+    set.seed(i)
+    train_index <- createDataPartition(y = dat_sub1$stat, p = 0.75, list = FALSE)
+    training_set <- dat_sub1[train_index,]
+    dat_sub2 <- dat_sub2[-vec,]
+    
+    set.seed(i)
+    rf1 <- randomForest(stat~.,
+                        data = training_set,
+                        ntree = 500,
+                        maxnodes = 75,
+                        maximize = TRUE,
+                        trControl = train_control,
+                        importance = TRUE,
+                        keep.forest = TRUE,
+                        keep.inbag = TRUE) ## making the rf object
+    y_hats1[i,1:nrow(testing_set)] <- predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2]
+    y_hats1.diff[i] <- mean(as.numeric(y_hats1[i,1:nrow(testing_set)]) - (as.numeric(testing_set$stat)-1))
+    varImp1.summary[,i] <- rf1$importance[,3] ## Mean decrease accuracy
+    varImp1.names[,i] <- rownames(rf1$importance)
+    rf1.res[i,c(1:length(testing_set$stat))] <- predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2] - (as.numeric(testing_set$stat)-1)
+    error1[i,] <- rf1$err.rate[,1] ## out of bag error
+    rf.roc <- suppressMessages(roc(training_set$stat, rf1$votes[,2]))
+    AUC.val1[i] <- as.numeric(auc(rf.roc))
+    
+    ## second model predicting the residuals
+    res4pred <- rf1.res[i,!is.na(rf1.res[i,])]
+    length(res4pred)
+    
+    dat_sub2$obs <- as.numeric(dat_sub2$stat)-1
+    dat_sub2$pred <- as.numeric(predict(object = rf1, newdata = testing_set[, -1], type = "prob")[,2])
+    dat_sub2$stat <- as.numeric(res4pred)
+    dat_sub2$obs <- NULL
+    dat_sub2$pred <- NULL
+    
+    ## balancing dat_sub2 - requires upsampling
+    type1 <- dat_sub2[round(dat_sub2$stat, 0) == -1, ]
+    correct <- dat_sub2[round(dat_sub2$stat, 0) == 0, ]
+    type2 <- dat_sub2[round(dat_sub2$stat, 0) == 1, ]
+    
+    set.seed(i)
+    type1 <- type1[sample(nrow(type1), 1000, replace = TRUE), ]
+    set.seed(i)
+    correct <- correct[sample(nrow(correct), 1000, replace = TRUE), ]
+    set.seed(i)
+    type2 <- type2[sample(nrow(type2), 1000, replace = TRUE), ]
+    dat_sub2 <- rbind(type1,correct,type2)
+    
+    set.seed(i)
+    dat_sub2 <- dat_sub2[sample(nrow(dat_sub2), nrow(dmat), replace = TRUE),]
+    
+    set.seed(i)
+    vec <- order(dmat[sample(1:nrow(dat_sub2),1),]) ## getting rows in order of distance to random point generated
+    vec <- vec[c(1:(0.75*nrow(dat_sub2)))]
+    
+    training_set <- dat_sub2[vec,]
+    balance2[i] <- mean(dat_sub2$stat)
+    testing_set <- dat_sub2[-vec,]
+    set.seed(i)
+    train_index <- createDataPartition(y = dat_sub2$stat, p = 0.75, list = FALSE)
+    training_set <- dat_sub2[train_index,]
+    
+    set.seed(i)
+    rf2 <- randomForest(stat~.,
+                        data = training_set,
+                        ntree = 500,
+                        maxnodes = 75,
+                        maximize = TRUE,
+                        trControl = train_control,
+                        importance = TRUE,
+                        keep.forest = TRUE,
+                        keep.inbag = TRUE) ## making the rf object
+    y_hats2[i,1:nrow(testing_set)] <- predict(object = rf2, newdata = testing_set[, -1])
+    y_hats2.diff[i] <- mean(as.numeric(y_hats2[i,1:nrow(testing_set)]) - as.numeric(testing_set$stat))
+    varImp2.summary[,i] <- rf2$importance[,1]
+    varImp2.names[,i] <- rownames(rf2$importance)
+    rf2.res[i,c(1:length(rf2$predicted))] <- as.numeric(rf2$predicted) - as.numeric(training_set$stat)
+    error2[i,] <- rf2$mse
+    training_set$bin.out <- round(training_set$stat,0)
+    rf.roc <- suppressMessages(  multiclass.roc(training_set$bin.out, rf2$predicted))
+    AUC.val2[i] <- as.numeric(auc(rf.roc))
+    r2[i,] <- rf2$rsq
+    
+    training_set <- as.data.frame(training_set)
+    prop.rx <- partialPlot(rf2, training_set, x.var = prop.rx)
+    prop.thin <- partialPlot(rf2, training_set, x.var = prop.thin)
+    TS.rx <- partialPlot(rf2, training_set, x.var = TS.rx)
+    TS.thin <- partialPlot(rf2, training_set, x.var = TS.thin)
+    burnAc <- partialPlot(rf2, training_set, x.var = BurnAcre)
+    
+    prop.rx.x[i,1:length(prop.rx$x)] <- prop.rx$x
+    prop.rx.y[i,1:length(prop.rx$y)] <- prop.rx$y
+    prop.thin.x[i,1:length(prop.thin$x)] <- prop.thin$x
+    prop.thin.y[i,1:length(prop.thin$y)] <- prop.thin$y
+    TS.rx.x[i,1:length(TS.rx$x)] <- TS.rx$x
+    TS.rx.y[i,1:length(TS.rx$y)] <- TS.rx$y
+    TS.thin.x[i,1:length(TS.thin$x)] <- TS.thin$x
+    TS.thin.y[i,1:length(TS.thin$y)] <- TS.thin$y
+    burnAc.x[i,1:length(burnAc$x)] <- burnAc$x
+    burnAc.y[i,1:length(burnAc$y)] <- burnAc$x
+    gc()
+    
+    progress <- i/n*100
+    if (progress %% 5 == 0) {
+      print(paste(progress, "% done", sep = ""))
+    }
   }
+  
+  ## pred vs obs plot
+  par(mfrow = c(1,1), oma = c(0,0,0,0))
+  # y_hats1.diff <- y_hats1.diff*100 ## converting to %
+  max(y_hats1.diff);min(y_hats1.diff)
+  plot(x = 1:length(y_hats1.diff), y = y_hats1.diff,
+       pch = 16,
+       xlab = "model run",
+       ylim = c(min(y_hats1.diff)-0.1,max(y_hats1.diff)+0.1),
+       las = 1,
+       main = "Space + Year",
+       ylab = "Average Predicted - Observed",
+       cex = 1) ## Difference in Predicted Probability vs.Observed Class
+  round(mean(y_hats1.diff), digits = 3)
+  abline(h = mean(y_hats1.diff), col="firebrick4", lty = 2)
+  # text("topright", "Average difference = 6.84%") 
+  
+  # y_hats2.diff <- y_hats2.diff*100 ## converting to %
+  max(y_hats2.diff);min(y_hats2.diff)
+  plot(x = 1:length(y_hats2.diff), y = y_hats2.diff,
+       pch = 16,
+       xlab = "model run",
+       ylim = c(min(y_hats2.diff)-0.1,max(y_hats2.diff)+0.1),
+       las = 1,
+       main = "Treatments",
+       ylab = "Average Predicted - Observed",
+       cex = 1) ## predicted probability of residual - observed probability of residual (from rf1)
+  round(mean(y_hats2.diff), digits = 3)
+  abline(h = mean(y_hats2.diff), col="firebrick4", lty = 2)
+  # text(x = 30, y = 50, "Average difference = 12.4%") 
+  
+  mean(balance1);min(balance1);max(balance1) ## balance of line status
+  # [1] 0.4918152
+  # [1] 0.4734645
+  # [1] 0.5159817
+  
+  mean(balance2);min(balance2);max(balance2) ## average residual error from rf1 (per model run)
+  # [1] 0.02118591
+  # [1] -0.01630067
+  # [1] 0.05184733
+  
+  error.mean.1 <- apply(error1,2,mean)
+  min(error1);max(error1)
+  plot(error.mean.1, type = "n",
+       ylim = c(0,max(error1)+0.05),
+       las = 1,
+       xlab = "Tree",
+       main = "Space + Year",
+       ylab = "OOB Error")
+  for(i in 1:n){
+    lines(error1[i,], col = rgb(0,0,0,alpha = 0.25))
+  }
+  lines(error.mean.1, type = "l", col = "firebrick", lty = 2, lwd= 2)
+  mean(error.mean.1)*100 # 31.64696
+  # text(x = 300, y = 0.18, "Average Error = __%")
+  
+  error.mean.2 <- apply(error2,2,mean)
+  min(error2);max(error2)
+  plot(error.mean.2, type = "n",
+       ylim = c(0,max(error1)+0.05),
+       las = 1,
+       xlab = "Tree",
+       main = "Treatments",
+       ylab = "Mean Square Error")
+  for(i in 1:n){
+    lines(error2[i,], col = rgb(0,0,0,alpha = 0.25))
+  }
+  lines(error.mean.2, type = "l", col = "firebrick", lty = 2, lwd= 2)
+  mean(error.mean.2)*100 # 18.74919
+  # text(x = 300, y = 0.18, "Average Error = __%")
+  
+  par(mfrow = c(1,1))
+  plot(x = c(1,2),
+       y = c(0,1),
+       las = 1,
+       xaxt = "n",
+       xlab = "",
+       ylab = "AUC",
+       type = "n")
+  axis(1, at = c(1.2,1.8), line = 1, tick = F, labels = c("Space + Year", "Treatments"), cex.axis = 1.5)
+  points(x = c(1.2,1.8),
+         y = c(mean(AUC.val1), mean(AUC.val2)),
+         pch = 16)
+  segments(x0 = 1.2, y0 = max(AUC.val1), x1 = 1.2, y1 = min(AUC.val1))
+  segments(x0 = 1.8, y0 = max(AUC.val2), x1 = 1.8, y1 = min(AUC.val2))
+  abline(h = 0.5, lty = 2)
+  
+  mean(AUC.val1);min(AUC.val1);max(AUC.val1)
+  # [1] 0.7681421
+  # [1] 0.7543344
+  # [1] 0.7820763
+  
+  mean(AUC.val2);min(AUC.val2);max(AUC.val2)
+  # [1] 0.7059042
+  # [1] 0.6331383
+  # [1] 0.7967686
+  
+  r2.mean <- apply(r2,1,mean)
+  mean(r2.mean);min(r2.mean);max(r2.mean)
+  hist(r2)
+  ## between 11 - 40% of additional variance explained
+  # [1] 0.204494
+  # [1] 0.1107893
+  # [1] 0.4120808
+  
+  ## VarImp Plot 1
+  varImp.plotting1 <- data.frame(name = c(varImp1.names[c(1),1],"spatial"),
+                                 mean = c(mean(varImp1.summary[c(1),]),mean(varImp1.summary[c(2:31),])),
+                                 min = c(min(varImp1.summary[c(1),]),min(varImp1.summary[c(2:31),])),
+                                 max = c(max(varImp1.summary[c(1),]),max(varImp1.summary[c(2:31),])))
+  varImp.plotting1 <- varImp.plotting1[order(varImp.plotting1$mean, decreasing = FALSE),]
+  
+  min(varImp.plotting1$min)
+  max(varImp.plotting1$max)
+  par(mfrow = c(1,2), oma = c(0,3,0,0))
+  plot(varImp.plotting1$mean,
+       ylim = c(0,3),
+       xlim = c(0,max(varImp.plotting1$max)), ## max of varImp.plotting$max + a few
+       las = 1,
+       type = "n",
+       ylab = "",
+       yaxt = "n",
+       xlab = "Mean Decrease Accuracy")
+  axis(2, at = c(1:2), labels = varImp.plotting1$name, cex.axis = 1, las = 2)
+  points(x = varImp.plotting1$mean,y = 1:2, col = "black", cex = 1, pch = 16)
+  segments(x0 = varImp.plotting1$min, y0 = 1:2, x1 = varImp.plotting1$max, y1 = 1:2, col = "black", lwd = 1.5)
+  # abline(v = 10, lty = 2)
+  
+  ## VarImp Plot 2
+  varImp.plotting2 <- data.frame(name = c(varImp2.names[c(1:6),1]),
+                                 mean = c(apply(varImp2.summary[c(1:6),],1,mean)),
+                                 min = c(apply(varImp2.summary[c(1:6),],1,min)),
+                                 max = c(apply(varImp2.summary[c(1:6),],1,max)))
+  varImp.plotting2 <- varImp.plotting2[order(varImp.plotting2$mean, decreasing = FALSE),]
+  
+  min(varImp.plotting2$min)
+  max(varImp.plotting2$max)
+  # par(mfrow = c(1,1), oma = c(0,3,0,0))
+  plot(varImp.plotting2$mean,
+       ylim = c(0,7),
+       xlim = c(0,max(varImp.plotting2$max)), ## max of varImp.plotting$max + a few
+       las = 1,
+       type = "n",
+       ylab = "",
+       yaxt = "n",
+       xlab = "Mean Decrease Accuracy")
+  axis(2, at = c(1:6), labels = varImp.plotting2$name, cex.axis = 1, las = 2)
+  points(x = varImp.plotting2$mean,y = 1:6, col = "black", cex = 1, pch = 16)
+  segments(x0 = varImp.plotting2$min, y0 = 1:6, x1 = varImp.plotting2$max, y1 = 1:6, col = "black", lwd = 1.5)
+  # abline(v = 10, lty = 2)
+  
+  
+  global.results[(j+1),1] <- mean(y_hats1.diff)
+  global.results[(j+1),2] <- min(y_hats1.diff)
+  global.results[(j+1),3] <- max(y_hats1.diff)
+  global.results[(j+1),4] <- mean(y_hats2.diff)
+  global.results[(j+1),5] <- min(y_hats2.diff)
+  global.results[(j+1),6] <- max(y_hats2.diff)
+  global.results[(j+1),7] <- mean(error.mean.1)
+  global.results[(j+1),8] <- min(error.mean.1)
+  global.results[(j+1),9] <- max(error.mean.1)
+  global.results[(j+1),10] <- mean(error.mean.2)
+  global.results[(j+1),11] <- min(error.mean.2)
+  global.results[(j+1),12] <- max(error.mean.2)
+  global.results[(j+1),13] <- mean(AUC.val1)
+  global.results[(j+1),14] <- min(AUC.val1)
+  global.results[(j+1),15] <- max(AUC.val1)
+  global.results[(j+1),16] <- mean(AUC.val2)
+  global.results[(j+1),17] <- min(AUC.val2)
+  global.results[(j+1),18] <- max(AUC.val2)
+  global.results[(j+1),19] <- mean(r2.mean)
+  global.results[(j+1),20] <- min(r2.mean)
+  global.results[(j+1),21] <- max(r2.mean)
+  
+  varImp.list.rf1[[(j)]] <- varImp.plotting1
+  varImp.list.rf2[[(j)]] <- varImp.plotting2
+  
+  print(ecoregion[j])
+  print(j/11*100)
 }
 
-## pred vs obs plot
-par(mfrow = c(1,2))
-# y_hats1.diff <- y_hats1.diff*100 ## converting to %
-max(y_hats1.diff);min(y_hats1.diff)
-plot(x = 1:length(y_hats1.diff), y = y_hats1.diff,
-     pch = 16,
-     xlab = "model run",
-     ylim = c(min(y_hats1.diff)-0.1,max(y_hats1.diff)+0.1),
+colnames(global.results) <- c("PvO_mean_rf1","PvO_min_rf1","PvO_max_rf1",
+                              "PvO_mean_rf2","PvO_min_rf2","PvO_max_rf2",
+                              "OOB_mean_rf1","OOB_min_rf1","OOB_max_rf1",
+                              "OOB_mean_rf2","OOB_min_rf2","OOB_max_rf2",
+                              "AUC1_mean", "AUC1_min", "AUC1_max",
+                              "AUC2_mean", "AUC2_min", "AUC2_max",
+                              "r2_mean", "r2_min", "r2_max")
+
+global.results <- rbind(global.results,NA)
+global.results <- global.results[c(2,8,3,13,9,10,5,6,7,12,4,11,1),]
+eco.names <- c("SW Mtns", "Blue Mtns", "S Rocky Mtns", "Wasatch", "Middle Rocky Mtns", "E Cascades", "Sierra Nevada", "N Rocky Mtns", 
+               "Klamath", "N Cascades", "Cascades", "Coastal Range", "Total")
+rownames(global.results) <- eco.names
+# write.csv(global.results, "modelresults.csv")
+
+
+#### Model Result Plots Across Scales ####
+pal1 <- turbo(12, alpha = 0.2)
+pal2 <- turbo(12, alpha = 1)
+pal2 <- c(rev(pal2),"black")
+  
+par(mfrow = c(1,1), oma = c(0, 6, 0, 0))
+
+## predicted vs observed
+plot(y = c(0:14),
+     x = rep(0,length(c(0:14))),
+     xlim = c(-.2,.2),
      las = 1,
-     main = "Space + Year",
-     ylab = "Average Predicted - Observed",
-     cex = 1) ## Difference in Predicted Probability vs.Observed Class
-round(mean(y_hats1.diff), digits = 3)
-abline(h = mean(y_hats1.diff), col="firebrick4", lty = 2)
-# text("topright", "Average difference = 6.84%") 
-
-# y_hats2.diff <- y_hats2.diff*100 ## converting to %
-max(y_hats2.diff);min(y_hats2.diff)
-plot(x = 1:length(y_hats2.diff), y = y_hats2.diff,
-     pch = 16,
-     xlab = "model run",
-     ylim = c(min(y_hats1.diff)-0.1,max(y_hats1.diff)+0.1),
-     las = 1,
-     main = "Treatments",
-     ylab = "Average Predicted - Observed",
-     cex = 1) ## predicted probability of residual - observed probability of residual (from rf1)
-round(mean(y_hats2.diff), digits = 3)
-abline(h = mean(y_hats2.diff), col="firebrick4", lty = 2)
-# text(x = 30, y = 50, "Average difference = 12.4%") 
-
-mean(balance1);min(balance1);max(balance1) ## balance of line status
-# [1] 0.6070943
-# [1] 0.5699896
-# [1] 0.6353383
-
-mean(balance2);min(balance2);max(balance2) ## average residual error from rf1 (per model run)
-# [1] 0.06036143
-# [1] 0.01682586
-# [1] 0.1121711
-
-error.mean <- apply(error1,2,mean)
-min(error1);max(error1)
-plot(error.mean, type = "n",
-     ylim = c(0,max(error1)+0.05),
-     las = 1,
-     xlab = "Tree",
-     main = "Space + Year",
-     ylab = "OOB Error")
-for(i in 1:n){
-  lines(error1[i,], col = rgb(0,0,0,alpha = 0.25))
-}
-lines(error.mean, type = "l", col = "firebrick", lty = 2, lwd= 2)
-mean(error.mean)*100 # 14.94094
-# text(x = 300, y = 0.18, "Average Error = __%")
-
-error.mean <- apply(error2,2,mean)
-min(error2);max(error2)
-plot(error.mean, type = "n",
-     ylim = c(0,max(error1)+0.05),
-     las = 1,
-     xlab = "Tree",
-     main = "Treatments",
-     ylab = "Mean Square Error")
-for(i in 1:n){
-  lines(error2[i,], col = rgb(0,0,0,alpha = 0.25))
-}
-lines(error.mean, type = "l", col = "firebrick", lty = 2, lwd= 2)
-mean(error.mean)*100 # 7.515766
-# text(x = 300, y = 0.18, "Average Error = __%")
-
-par(mfrow = c(1,1))
-plot(x = c(1,2),
-     y = c(0,1),
-     las = 1,
-     xaxt = "n",
+     main = "Predicted vs Observed",
+     cex.axis = 1.5,
      xlab = "",
-     ylab = "AUC",
-     type = "n")
-axis(1, at = c(1.2,1.8), line = 1, tick = F, labels = c("Space + Year", "Treatments"), cex.axis = 1.5)
-points(x = c(1.2,1.8),
-       y = c(mean(AUC.val1_SR), mean(AUC.val2_SR)),
-       pch = 16)
-segments(x0 = 1.2, y0 = max(AUC.val1_SR), x1 = 1.2, y1 = min(AUC.val1_SR))
-segments(x0 = 1.8, y0 = max(AUC.val2_SR), x1 = 1.8, y1 = min(AUC.val2_SR))
-abline(h = 0.5, lty = 2)
-
-mean(AUC.val1_SR);min(AUC.val1_SR);max(AUC.val1_SR)
-# [1] 0.9270696
-# [1] 0.9181488
-# [1] 0.9393754
-
-mean(AUC.val2_SR);min(AUC.val2_SR);max(AUC.val2_SR)
-# [1] 0.7257837
-# [1] 0.5655083
-# [1] 0.8820921
-
-r2.mean <- apply(r2_SR,1,mean)
-mean(r2.mean);min(r2.mean);max(r2.mean)
-## between -0.1 - 7% of additional variance explained (average 2%)
-# [1] 0.01774606
-# [1] -0.001408677
-# [1] 0.06644681
-
-## VarImp Plot 1
-varImp.plotting1 <- data.frame(name = c(varImp1.names[c(1),1],"spatial"),
-                               mean = c(mean(varImp1.summary[c(1),]),mean(varImp1.summary[c(2:31),])),
-                               min = c(min(varImp1.summary[c(1),]),min(varImp1.summary[c(2:31),])),
-                               max = c(max(varImp1.summary[c(1),]),max(varImp1.summary[c(2:31),])))
-varImp.plotting1 <- varImp.plotting1[order(varImp.plotting1$mean, decreasing = FALSE),]
-
-min(varImp.plotting1$min)
-max(varImp.plotting1$max)
-par(mfrow = c(1,2), oma = c(0,3,0,0))
-plot(varImp.plotting1$mean,
-     ylim = c(0,3),
-     xlim = c(0,max(varImp.plotting1$max)), ## max of varImp.plotting$max + a few
-     las = 1,
      type = "n",
-     ylab = "",
      yaxt = "n",
-     xlab = "Mean Decrease Accuracy")
-axis(2, at = c(1:2), labels = varImp.plotting1$name, cex.axis = 1, las = 2)
-points(x = varImp.plotting1$mean,y = 1:2, col = "black", cex = 1, pch = 16)
-segments(x0 = varImp.plotting1$min, y0 = 1:2, x1 = varImp.plotting1$max, y1 = 1:2, col = "black", lwd = 1.5)
-# abline(v = 10, lty = 2)
-
-## VarImp Plot 2
-varImp.plotting2 <- data.frame(name = c(varImp2.names[c(1:5),1]),
-                               mean = c(apply(varImp2.summary[c(1:5),],1,mean)),
-                               min = c(apply(varImp2.summary[c(1:5),],1,min)),
-                               max = c(apply(varImp2.summary[c(1:5),],1,max)))
-varImp.plotting2 <- varImp.plotting2[order(varImp.plotting2$mean, decreasing = FALSE),]
-
-min(varImp.plotting2$min)
-max(varImp.plotting2$max)
-# par(mfrow = c(1,1), oma = c(0,3,0,0))
-plot(varImp.plotting2$mean,
-     ylim = c(0,6),
-     xlim = c(0,max(varImp.plotting1$max)), ## max of varImp.plotting$max + a few
-     las = 1,
-     type = "n",
-     ylab = "",
-     yaxt = "n",
-     xlab = "Mean Decrease Accuracy")
-axis(2, at = c(1:5), labels = varImp.plotting2$name, cex.axis = 1, las = 2)
-points(x = varImp.plotting2$mean,y = 1:5, col = "black", cex = 1, pch = 16)
-segments(x0 = varImp.plotting2$min, y0 = 1:5, x1 = varImp.plotting2$max, y1 = 1:5, col = "black", lwd = 1.5)
-# abline(v = 10, lty = 2)
-
-## Partial Dependence Plots
-# FD <- Engaged_Lines
-# FD$LineInt <- as.integer(FD$LineStat)-1
-# FD$LineInt[FD$LineInt == 0] <- -0.25
-# FD$LineInt[FD$LineInt == 1] <- 1.25
-
-prop.rx.y <- 1-(1/(1+exp(-prop.rx.y)))*2
-prop.thin.y <- 1-(1/(1+exp(-prop.thin.y)))*2
-TS.rx.y <- 1-(1/(1+exp(-TS.rx.y)))*2
-TS.thin.y <- 1-(1/(1+exp(-TS.thin.y)))*2
-gc()
-
-par(mfrow = c(2,2))
-
-plot(prop.rx.x[1,], prop.rx.y[1,],
-     type = "l",
-     ylim = c(-1.25,1.25),
-     col = rgb(0,0,0,0.25),
-     main = "",
-     yaxt = "n",
-     cex.axis = 1.5,
-     cex.lab = 1.5,
-     las = 1,
-     xlab = "Proportion Rx Fire",
      ylab = "")
-axis(2, at = c(-1,0,1), line = 1, las = 1,tick = T, labels = c("Type 1", "Correct", "Type 2"), cex.axis = 1.5)
-for(i in 2:n)(
-  lines(prop.rx.x[i,], prop.rx.y[i,], col = rgb(0,0,0,0.25))
-)
-prop.rx.x.mean <- apply(prop.rx.x,2,mean, na.rm = T)
-prop.rx.y.mean <- apply(prop.rx.y,2,mean, na.rm = T)
-lo <- loess(prop.rx.y.mean~prop.rx.x.mean)
-lines(y = predict(lo), x = prop.rx.x.mean[1:length(predict(lo))], col = "red", lwd = 2)
+abline(v = 0, lty = 2)
+mtext("Difference", side = 1, line = 2.5, cex = 1.2)
+text(x = -.23,
+     y = 1:13,
+     labels = eco.names,
+     col = pal2,
+     adj = 1,
+     xpd = NA,
+     srt = 0,      ## Rotate the labels by 0 degrees.
+     cex = 1.2)
 
-plot(prop.thin.x[1,], prop.thin.y[1,],
-     type = "l",
-     ylim = c(-1.25,1.25),
-     col = rgb(0,0,0,0.25),
+for(i in 1:nrow(global.results)){
+  points(y = i+0.1,
+         x = global.results[i,1],
+         col = pal2[i],
+         pch = 16)
+  points(y = i-0.1,
+         x = global.results[i,4],
+         col = pal2[i],
+         pch = 17)
+  segments(x0 = global.results[i,2], y0 = i+0.1,
+           x1 = global.results[i,3], y1 = i+0.1,
+           col = pal2[i],
+           lwd = 1.5)
+  segments(x0 = global.results[i,5], y0 = i-0.1,
+           x1 = global.results[i,6], y1 = i-0.1,
+           col = pal2[i],
+           lwd = 1.5,
+           lty = 3)
+}
+legend("bottom", legend = c("Space + Time", "Trt + Burn Area"),
+       col = "black", pch = c(16, 17),lty = c(1,3), ncol = 2)
+
+## OOB error
+plot(y = c(0:14),
+     x = rep(0,length(c(0:14))),
+     xlim = c(0,0.5),
+     las = 1,
      main = "",
-     yaxt = "n",
      cex.axis = 1.5,
-     cex.lab = 1.5,
-     las = 1,
-     xlab = "Proportion Thinning",
-     ylab = "")
-axis(2, at = c(-1,0,1), line = 1, las = 1,tick = T, labels = c("Type 1", "Correct", "Type 2"), cex.axis = 1.5)
-for(i in 2:n)(
-  lines(prop.thin.x[i,], prop.thin.y[i,], col = rgb(0,0,0,0.25))
-)
-prop.thin.x.mean <- apply(prop.thin.x,2,mean, na.rm = T)
-prop.thin.y.mean <- apply(prop.thin.y,2,mean, na.rm = T)
-lo <- loess(prop.thin.y.mean~prop.thin.x.mean)
-lines(y = predict(lo), x = prop.thin.x.mean[1:length(predict(lo))], col = "red", lwd = 2)
-
-plot(TS.rx.x[1,], TS.rx.y[1,],
-     type = "l",
-     ylim = c(-1.25,1.25),
-     col = rgb(0,0,0,0.25),
-     main = "",
-     yaxt = "n",
-     cex.axis = 1.5,
-     cex.lab = 1.5,
-     las = 1,
-     xlab = "Time Since Rx Fire",
-     ylab = "")
-axis(2, at = c(-1,0,1), line = 1, las = 1,tick = T, labels = c("Type 1", "Correct", "Type 2"), cex.axis = 1.5)
-for(i in 2:n)(
-  lines(TS.rx.x[i,], TS.rx.y[i,], col = rgb(0,0,0,0.25))
-)
-TS.rx.x.mean <- apply(TS.rx.x,2,mean, na.rm = T)
-TS.rx.y.mean <- apply(TS.rx.y,2,mean, na.rm = T)
-lo <- loess(TS.rx.y.mean~TS.rx.x.mean)
-lines(y = predict(lo), x = TS.rx.x.mean[1:length(predict(lo))], col = "red", lwd = 2)
-
-plot(TS.thin.x[1,], TS.thin.y[1,],
-     type = "l",
-     ylim = c(-1.25,1.25),
-     col = rgb(0,0,0,0.25),
-     main = "",
-     yaxt = "n",
-     cex.axis = 1.5,
-     cex.lab = 1.5,
-     las = 1,
-     xlab = "Time Since Thinning",
-     ylab = "")
-axis(2, at = c(-1,0,1), line = 1, las = 1,tick = T, labels = c("Type 1", "Correct", "Type 2"), cex.axis = 1.5)
-for(i in 2:n)(
-  lines(TS.thin.x[i,], TS.thin.y[i,], col = rgb(0,0,0,0.25))
-)
-TS.thin.x.mean <- apply(TS.thin.x,2,mean, na.rm = T)
-TS.thin.y.mean <- apply(TS.thin.y,2,mean, na.rm = T)
-lo <- loess(TS.thin.y.mean~TS.thin.x.mean)
-lines(y = predict(lo), x = TS.thin.x.mean[1:length(predict(lo))], col = "red", lwd = 2)
-par(mfrow = c(1,1))
-hist(round(training_set$stat, 0),
-     main = "Example Training Data Southern Rockies",
-     las = 1,
-     xlab = "Error Category")
-
-####  AUC Plot Across Scales ####
-par(mfrow = c(1,1))
-plot(x = c(1,2),
-     y = c(0,1),
-     las = 1,
-     xaxt = "n",
      xlab = "",
-     ylab = "AUC",
-     type = "n")
-axis(1, at = c(1.2,1.8), line = 1, tick = F, labels = c("Space + Year", "Treatments"), cex.axis = 1.5)
-points(x = c(1.1,1.7),
-       y = c(mean(AUC.val1), mean(AUC.val2)),
-       pch = 16,
-       col = "goldenrod")
-points(x = c(1.2,1.8),
-       y = c(mean(AUC.val1_SR), mean(AUC.val2_SR)),
-       pch = 16,
-       col = "navy")
-points(x = c(1.3,1.9),
-       y = c(mean(AUC.val1_CP), mean(AUC.val2_CP)),
-       pch = 16,
-       col = "magenta3")
+     type = "n",
+     yaxt = "n",
+     ylab = "")
+mtext("OOB Error", side = 1, line = 2.5, cex = 1.2)
+text(x = -.025,
+     y = 1:13,
+     labels = eco.names,
+     col = pal2,
+     adj = 1,
+     xpd = NA,
+     srt = 0,      ## Rotate the labels by 0 degrees.
+     cex = 1.2)
+for(i in 1:nrow(global.results)){
+  points(y = i+0.1,
+         x = global.results[i,7],
+         col = pal2[i],
+         pch = 16)
+  points(y = i-0.1,
+         x = global.results[i,10],
+         col = pal2[i],
+         pch = 17)
+  segments(x0 = global.results[i,8], y0 = i+0.1,
+           x1 = global.results[i,9], y1 = i+0.1,
+           col = pal2[i],
+           lwd = 1.5)
+  segments(x0 = global.results[i,11], y0 = i-0.1,
+           x1 = global.results[i,12], y1 = i-0.1,
+           col = pal2[i],
+           lwd = 1.5,
+           lty = 3)
+}
+legend("bottom", legend = c("Space + Time", "Trt + Burn Area"),
+       col = "black", pch = c(16, 17),lty = c(1,3), ncol = 2)
 
-segments(x0 = 1.1, y0 = max(AUC.val1), x1 = 1.1, y1 = min(AUC.val1), col = "goldenrod")
-segments(x0 = 1.7, y0 = max(AUC.val2), x1 = 1.7, y1 = min(AUC.val2), col = "goldenrod")
-segments(x0 = 1.2, y0 = max(AUC.val1_SR), x1 = 1.2, y1 = min(AUC.val1_SR), col = "navy")
-segments(x0 = 1.8, y0 = max(AUC.val2_SR), x1 = 1.8, y1 = min(AUC.val2_SR), col = "navy")
-segments(x0 = 1.3, y0 = max(AUC.val1_CP), x1 = 1.3, y1 = min(AUC.val1_CP), col = "magenta3")
-segments(x0 = 1.9, y0 = max(AUC.val2_CP), x1 = 1.9, y1 = min(AUC.val2_CP), col = "magenta3")
-abline(h = 0.5, lty = 2)
-legend("bottomright", legend = c("western USA", "Southern Rockies", "Cameron Pass"),
-       col = c("goldenrod","navy","magenta3"), pch = 16, ncol = 1, bty = "n")
 
-
-r2.mean1 <- apply(r2,1,mean)
-r2.mean2 <- apply(r2_SR,1,mean)
-r2.mean3 <- apply(r2_CP,1,mean)
-
+## AUC
+plot(y = c(0:14),
+     x = rep(0,length(c(0:14))),
+     xlim = c(0,1),
+     las = 1,
+     main = "",
+     cex.axis = 1.5,
+     xlab = "",
+     type = "n",
+     yaxt = "n",
+     ylab = "")
+mtext("AUC", side = 1, line = 2.5, cex = 1.2)
+text(x = -.06,
+     y = 1:13,
+     labels = eco.names,
+     col = pal2,
+     adj = 1,
+     xpd = NA,
+     srt = 0,      ## Rotate the labels by 0 degrees.
+     cex = 1.2)
+for(i in 1:nrow(global.results)){
+  points(y = i+0.1,
+         x = global.results[i,13],
+         col = pal2[i],
+         pch = 16)
+  points(y = i-0.1,
+         x = global.results[i,16],
+         col = pal2[i],
+         pch = 17)
+  segments(x0 = global.results[i,14], y0 = i+0.1,
+           x1 = global.results[i,15], y1 = i+0.1,
+           col = pal2[i],
+           lwd = 1.5)
+  segments(x0 = global.results[i,17], y0 = i-0.1,
+           x1 = global.results[i,18], y1 = i-0.1,
+           col = pal2[i],
+           lwd = 1.5,
+           lty = 3)
+}
+legend("bottom", legend = c("Space + Time", "Trt + Burn Area"),
+       col = "black", pch = c(16, 17),lty = c(1,3), ncol = 2)
 
 ## R2
-par(mfrow = c(1,1))
-plot(x = c(1,2),
-     y = c(-1,1),
+plot(y = c(0:14),
+     x = rep(0,length(c(0:14))),
+     xlim = c(0,1),
      las = 1,
-     xaxt = "n",
+     main = "",
+     cex.axis = 1.5,
      xlab = "",
-     ylab = "R2",
-     type = "n")
-abline(h = 0, lty = 2)
-points(x = c(1.4),
-       y = mean(r2.mean1),
-       pch = 16,
-       col = "goldenrod")
-points(x = c(1.5),
-       y = mean(r2.mean2),
-       pch = 16,
-       col = "navy")
-points(x = c(1.6),
-       y = mean(r2.mean3),
-       pch = 16,
-       col = "magenta3")
+     type = "n",
+     yaxt = "n",
+     ylab = "")
+mtext(expression(R^2), side = 1, line = 2.5, cex = 1.2)
+text(x = -.06,
+     y = 1:13,
+     labels = eco.names,
+     col = pal2,
+     adj = 1,
+     xpd = NA,
+     srt = 0,      ## Rotate the labels by 0 degrees.
+     cex = 1.2)
+for(i in 1:nrow(global.results)){
+  points(y = i,
+         x = global.results[i,19],
+         col = pal2[i],
+         pch = 16)
+  segments(x0 = global.results[i,20], y0 = i,
+           x1 = global.results[i,21], y1 = i,
+           col = pal2[i],
+           lwd = 1.5)
+}
 
-segments(x0 = 1.4, y0 = max(r2.mean1), x1 = 1.4, y1 = min(r2.mean1), col = "goldenrod")
-segments(x0 = 1.5, y0 = max(r2.mean2), x1 = 1.5, y1 = min(r2.mean2), col = "navy")
-segments(x0 = 1.6, y0 = max(r2.mean3), x1 = 1.6, y1 = min(r2.mean3), col = "magenta3")
-abline(h = 0, lty = 2)
-legend("bottomright", legend = c("western USA", "Southern Rockies", "Cameron Pass"),
-       col = c("goldenrod","navy","magenta3"), pch = 16, ncol = 1, bty = "n")
+#### Variable Importance Plots ####
+pal2 <- turbo(12, alpha = 1)
+pal2 <- c(rev(pal2),"black")
+
+eco.names <- c("SW Mtns", "Blue Mtns", "S Rocky Mtns", "Wasatch", "Middle Rocky Mtns", "E Cascades", "Sierra Nevada", "N Rocky Mtns", 
+               "Klamath", "N Cascades", "Cascades", "Coastal Range", "Total")
+par(mfrow = c(1,1), oma = c(0,6,0,0))
+backup <- varImp.list.rf1
+wasatch <- NA
+varImp.list.rf1 <- append(varImp.list.rf1, wasatch, after = 3)
+varImp.list.rf2 <- append(varImp.list.rf2, wasatch, after = 3)
+
+plot(y = c(0:14),
+     x = rep(0,length(c(0:14))),
+     xlim = c(0,0.1),
+     las = 1,
+     main = "",
+     cex.axis = 1.5,
+     xlab = "",
+     type = "n",
+     yaxt = "n",
+     ylab = "")
+mtext("Mean Decrease Accuracy", side = 1, line = 2.5, cex = 1.2)
+text(x = -.006,
+     y = 1:13,
+     labels = eco.names,
+     col = pal2,
+     adj = 1,
+     xpd = NA,
+     srt = 0,      ## Rotate the labels by 0 degrees.
+     cex = 1.2)
+for(i in 1:13){
+  if(any(is.na(varImp.list.rf1[[i]]))){
+    next
+  }
+  points(y = i+0.2,
+         x = varImp.list.rf1[[i]][varImp.list.rf1[[i]]$name == "year",2],
+         col = pal2[i],
+         pch = 16)
+  points(y = i-0.2,
+         x = varImp.list.rf1[[i]][varImp.list.rf1[[i]]$name == "spatial",2],
+         col = pal2[i],
+         pch = 17)
+  segments(x0 = varImp.list.rf1[[i]][varImp.list.rf1[[i]]$name == "year",3], y0 = i+0.2,
+           x1 = varImp.list.rf1[[i]][varImp.list.rf1[[i]]$name == "year",4], y1 = i+0.2,
+           col = pal2[i],
+           lwd = 1.5)
+  segments(x0 = varImp.list.rf1[[i]][varImp.list.rf1[[i]]$name == "spatial",3], y0 = i-0.2,
+           x1 = varImp.list.rf1[[i]][varImp.list.rf1[[i]]$name == "spatial",4], y1 = i-0.2,
+           col = pal2[i],
+           lwd = 1.5,
+           lty = 3)
+}
+legend("bottomright", legend = c("Time", "Space"),
+       col = "black", pch = c(16, 17),lty = c(1,3), ncol = 2, bty = "n")
+
+## RF 2
+varImp.list.rf2
+
+par(mfrow = c(2,2), oma = c(0,6,0,0))
+##thin
+plot(y = c(0:14),
+     x = rep(0,length(c(0:14))),
+     xlim = c(0,0.2),
+     las = 1,
+     main = "Thin",
+     cex.axis = 1.5,
+     xlab = "",
+     type = "n",
+     yaxt = "n",
+     ylab = "")
+mtext("Mean Decrease Accuracy", side = 1, line = 2.5, cex = 1.2)
+text(x = (par("usr")[3]*0.02),
+     y = 1:13,
+     labels = eco.names,
+     col = pal2,
+     adj = 1,
+     xpd = NA,
+     srt = 0,      ## Rotate the labels by 0 degrees.
+     cex = 1.2)
+for(i in 1:13){
+  if(any(is.na(varImp.list.rf2[[i]]))){
+    next
+  }
+  points(y = i+0.2,
+         x = varImp.list.rf2[[i]][varImp.list.rf2[[i]]$name == "TS.thin",2],
+         col = pal2[i],
+         pch = 16)
+  points(y = i-0.2,
+         x = varImp.list.rf2[[i]][varImp.list.rf2[[i]]$name == "prop.thin",2],
+         col = pal2[i],
+         pch = 17)
+  segments(x0 = varImp.list.rf2[[i]][varImp.list.rf2[[i]]$name == "TS.thin",3], y0 = i+0.2,
+           x1 = varImp.list.rf2[[i]][varImp.list.rf2[[i]]$name == "TS.thin",4], y1 = i+0.2,
+           col = pal2[i],
+           lwd = 1.5)
+  segments(x0 = varImp.list.rf2[[i]][varImp.list.rf2[[i]]$name == "prop.thin",3], y0 = i-0.2,
+           x1 = varImp.list.rf2[[i]][varImp.list.rf2[[i]]$name == "prop.thin",4], y1 = i-0.2,
+           col = pal2[i],
+           lwd = 1.5,
+           lty = 3)
+}
+legend("bottomright", legend = c("TS.thin", "prop.thin"),
+       col = "black", pch = c(16, 17),lty = c(1,3), ncol = 2, bty = "n")
+
+## Rx
+plot(y = c(0:14),
+     x = rep(0,length(c(0:14))),
+     xlim = c(0,0.2),
+     las = 1,
+     main = "Rx",
+     cex.axis = 1.5,
+     xlab = "",
+     type = "n",
+     yaxt = "n",
+     ylab = "")
+mtext("Mean Decrease Accuracy", side = 1, line = 2.5, cex = 1.2)
+for(i in 1:13){
+  if(any(is.na(varImp.list.rf2[[i]]))){
+    next
+  }
+  points(y = i+0.2,
+         x = varImp.list.rf2[[i]][varImp.list.rf2[[i]]$name == "TS.rx",2],
+         col = pal2[i],
+         pch = 16)
+  points(y = i-0.2,
+         x = varImp.list.rf2[[i]][varImp.list.rf2[[i]]$name == "prop.rx",2],
+         col = pal2[i],
+         pch = 17)
+  segments(x0 = varImp.list.rf2[[i]][varImp.list.rf2[[i]]$name == "TS.rx",3], y0 = i+0.2,
+           x1 = varImp.list.rf2[[i]][varImp.list.rf2[[i]]$name == "TS.rx",4], y1 = i+0.2,
+           col = pal2[i],
+           lwd = 1.5)
+  segments(x0 = varImp.list.rf2[[i]][varImp.list.rf2[[i]]$name == "prop.rx",3], y0 = i-0.2,
+           x1 = varImp.list.rf2[[i]][varImp.list.rf2[[i]]$name == "prop.rx",4], y1 = i-0.2,
+           col = pal2[i],
+           lwd = 1.5,
+           lty = 3)
+}
+legend("bottomright", legend = c("TS.rx", "prop.rx"),
+       col = "black", pch = c(16, 17),lty = c(1,3), ncol = 2, bty = "n")
+
+## trt
+plot(y = c(0:14),
+     x = rep(0,length(c(0:14))),
+     xlim = c(0,0.15),
+     las = 1,
+     main = "Treatment",
+     cex.axis = 1.5,
+     xlab = "",
+     type = "n",
+     yaxt = "n",
+     ylab = "")
+mtext("Mean Decrease Accuracy", side = 1, line = 2.5, cex = 1.2)
+text(x = (par("usr")[3]*0.02),
+     y = 1:13,
+     labels = eco.names,
+     col = pal2,
+     adj = 1,
+     xpd = NA,
+     srt = 0,      ## Rotate the labels by 0 degrees.
+     cex = 1.2)
+for(i in 1:13){
+  if(any(is.na(varImp.list.rf2[[i]]))){
+    next
+  }
+  points(y = i,
+         x = varImp.list.rf2[[i]][varImp.list.rf2[[i]]$name == "trt",2],
+         col = pal2[i],
+         pch = 16)
+  segments(x0 = varImp.list.rf2[[i]][varImp.list.rf2[[i]]$name == "trt",3], y0 = i,
+           x1 = varImp.list.rf2[[i]][varImp.list.rf2[[i]]$name == "trt",4], y1 = i,
+           col = pal2[i],
+           lwd = 1.5)
+}
+
+## Burned Acres
+plot(y = c(0:14),
+     x = rep(0,length(c(0:14))),
+     xlim = c(0,0.4),
+     las = 1,
+     main = "Area Burned",
+     cex.axis = 1.5,
+     xlab = "",
+     type = "n",
+     yaxt = "n",
+     ylab = "")
+mtext("Mean Decrease Accuracy", side = 1, line = 2.5, cex = 1.2)
+for(i in 1:13){
+  if(any(is.na(varImp.list.rf2[[i]]))){
+    next
+  }
+  points(y = i,
+         x = varImp.list.rf2[[i]][varImp.list.rf2[[i]]$name == "BurnAcre",2],
+         col = pal2[i],
+         pch = 16)
+  segments(x0 = varImp.list.rf2[[i]][varImp.list.rf2[[i]]$name == "BurnAcre",3], y0 = i,
+           x1 = varImp.list.rf2[[i]][varImp.list.rf2[[i]]$name == "BurnAcre",4], y1 = i,
+           col = pal2[i],
+           lwd = 1.5)
+}
+
+# saveRDS(varImp.list.rf1, "varImp_rf1.RData")
+# saveRDS(varImp.list.rf2, "varImp_rf2.RData")
+# readRDS("varImp_rf2.RData")
+
 
 #### Chi Sq. Test ####
 Engaged_Lines <- read.csv("Engaged_Lines_DisturbanceHistory.csv")
-colnames(Engaged_Lines)[c(31:34,36:40,28,29)]
-Engaged_Lines <- Engaged_Lines[,c(31:34,36:40,28,29)]
+colnames(Engaged_Lines)[c(31,32,33,34,36:40,28,29)]
+Engaged_Lines <- Engaged_Lines[,c(31,32,33,34,36:40,28,29)]
 head(Engaged_Lines)
 
-## all fires
-table(Engaged_Lines$trt)
-table(Engaged_Lines$stat[Engaged_Lines$trt == "Thinning only"])
-table(Engaged_Lines$stat[Engaged_Lines$trt == "Thinning and Prescribed"])
-table(Engaged_Lines$stat[Engaged_Lines$trt == "Prescribed only"])
-table(Engaged_Lines$stat[Engaged_Lines$trt == "Neither"])
-
-mat <- matrix(c(nrow(Engaged_Lines[Engaged_Lines$stat == "EH" & Engaged_Lines$trt == "Thinning only",]),
-                nrow(Engaged_Lines[Engaged_Lines$stat == "EF" & Engaged_Lines$trt == "Thinning only",]),
-                nrow(Engaged_Lines[Engaged_Lines$stat == "EH" & Engaged_Lines$trt == "Prescribed only",]),
-                nrow(Engaged_Lines[Engaged_Lines$stat == "EF" & Engaged_Lines$trt == "Prescribed only",]),
-                nrow(Engaged_Lines[Engaged_Lines$stat == "EH" & Engaged_Lines$trt == "Thinning and Prescribed",]),
-                nrow(Engaged_Lines[Engaged_Lines$stat == "EF" & Engaged_Lines$trt == "Thinning and Prescribed",]),
-                nrow(Engaged_Lines[Engaged_Lines$stat == "EH" & Engaged_Lines$trt == "Neither",]),
-                nrow(Engaged_Lines[Engaged_Lines$stat == "EF" & Engaged_Lines$trt == "Neither",])),
-              nrow = 2, byrow = F)
-
-colnames(mat) <- c("Thin", "Burn", "ThinXBurn","No Trt")
-rownames(mat) <- c("EH", "EF")
-
-mosaicplot(mat,
-           main = "",
-           xlab = "Line Status",
-           ylab = "Treatment")
-
-chisq.test(mat)
-
-m2 <- mat[c(1,2),c(4,1)]
-mosaicplot(m2,
-           main = "",
-           xlab = "Line Status",
-           ylab = "Treatment")
-
-chisq.test(m2)
-fisher.test(m2) ## looks like thinned lines more likely to fail
-
-m3 <- mat[c(1,2),c(4,2)]
-mosaicplot(m3,
-           main = "",
-           xlab = "Line Status",
-           ylab = "Treatment")
-
-chisq.test(m3)
-fisher.test(m3) ## looks like burned lines more likely to fail
-
-m4 <- mat[c(1,2),c(4,3)]
-mosaicplot(m4,
-           main = "",
-           xlab = "Line Status",
-           ylab = "Treatment")
-
-chisq.test(m4)
-fisher.test(m4) ## looks like thinned x burned lines less likely to fail
-1/0.8139909 ## 20% increase in lines holding in TxB
-
-## splitting into small and larger fires
-hist(Engaged_Lines$BurnAcre)
-smallfires <- Engaged_Lines[Engaged_Lines$BurnAcre < 10000,]
-smallfires <- smallfires[complete.cases(smallfires$stat),]
-largefires <- Engaged_Lines[Engaged_Lines$BurnAcre >= 10000,]
-largefires <- largefires[complete.cases(largefires$stat),]
-gc()
-
-## small fires
-mat <- matrix(c(nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Thinning only",]),
-                nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Thinning only",]),
-                nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Prescribed only",]),
-                nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Prescribed only",]),
-                nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Thinning and Prescribed",]),
-                nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Thinning and Prescribed",]),
-                nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Neither",]),
-                nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Neither",])),
-              nrow = 2, byrow = F)
-
-colnames(mat) <- c("Thin", "Burn", "ThinXBurn","No Trt")
-rownames(mat) <- c("EH", "EF")
-
-mosaicplot(mat,
-           main = "",
-           xlab = "Line Status",
-           ylab = "Treatment")
-
-chisq.test(mat)
-
-m2 <- mat[c(1,2),c(4,1)]
-mosaicplot(m2,
-           main = "",
-           xlab = "Line Status",
-           ylab = "Treatment")
-
-chisq.test(m2)
-fisher.test(m2) ## looks like thinned lines more likely to fail
-
-m3 <- mat[c(1,2),c(4,2)]
-mosaicplot(m3,
-           main = "",
-           xlab = "Line Status",
-           ylab = "Treatment")
-
-chisq.test(m3)
-fisher.test(m3) ## looks like burned lines more likely to fail
-
-m4 <- mat[c(1,2),c(4,3)]
-mosaicplot(m4,
-           main = "",
-           xlab = "Line Status",
-           ylab = "Treatment")
-
-chisq.test(m4)
-fisher.test(m4) ## looks like thinned x burned lines less likely to fail
-
-## large fires
-mat <- matrix(c(nrow(largefires[largefires$stat == "EH" & largefires$trt == "Thinning only",]),
-                nrow(largefires[largefires$stat == "EF" & largefires$trt == "Thinning only",]),
-                nrow(largefires[largefires$stat == "EH" & largefires$trt == "Prescribed only",]),
-                nrow(largefires[largefires$stat == "EF" & largefires$trt == "Prescribed only",]),
-                nrow(largefires[largefires$stat == "EH" & largefires$trt == "Thinning and Prescribed",]),
-                nrow(largefires[largefires$stat == "EF" & largefires$trt == "Thinning and Prescribed",]),
-                nrow(largefires[largefires$stat == "EH" & largefires$trt == "Neither",]),
-                nrow(largefires[largefires$stat == "EF" & largefires$trt == "Neither",])),
-              nrow = 2, byrow = F)
-
-colnames(mat) <- c("Thin", "Burn", "ThinXBurn","No Trt")
-rownames(mat) <- c("EH", "EF")
-
-mosaicplot(mat,
-           main = "",
-           xlab = "Line Status",
-           ylab = "Treatment")
-
-chisq.test(mat)
-
-m2 <- mat[c(1,2),c(4,1)]
-mosaicplot(m2,
-           main = "",
-           xlab = "Line Status",
-           ylab = "Treatment")
-
-chisq.test(m2)
-fisher.test(m2) ## looks like thinned lines more likely to fail
-
-m3 <- mat[c(1,2),c(4,2)]
-mosaicplot(m3,
-           main = "",
-           xlab = "Line Status",
-           ylab = "Treatment")
-
-chisq.test(m3)
-fisher.test(m3) ## looks like burned lines more likely to fail
-
-m4 <- mat[c(1,2),c(4,3)]
-mosaicplot(m4,
-           main = "",
-           xlab = "Line Status",
-           ylab = "Treatment")
-
-chisq.test(m4)
-fisher.test(m4) ## looks like thinned x burned lines less likely to fail
-
-#### Chi sq. by Ecoregions ####
 ## adding ecoregion
 W_Fires <- vect("./mtbs_perimeter_data/WF_Fires.shp")
 W_Fires$Incid_Name <- tolower(gsub("[[:punct:][:space:]]", "", W_Fires$Incid_Name))
@@ -2618,43 +2759,207 @@ for(i in 1:length(temp)){
   Engaged_Lines$ecoregion[Engaged_Lines$Incid_Name %in% X_Fires$Incid_Name] <- obj.names[i]
 }
 rm(list = temp)
-rm(temp);rm(X);rm(X_Fires);rm(i);rm(W_Fires)
+rm(temp);rm(X);rm(X_Fires);rm(i);rm(W_Fires);rm(obj.names)
 
 table(Engaged_Lines$ecoregion)
 table(is.na(Engaged_Lines$ecoregion))
 Engaged_Lines <- Engaged_Lines[complete.cases(Engaged_Lines$ecoregion),]
+## removing Engaged_Lines on fires just within ecotone of the ecoregions
+
+## all fires
+table(Engaged_Lines$trt)
+table(Engaged_Lines$stat[Engaged_Lines$trt == "Thinning only"])
+table(Engaged_Lines$stat[Engaged_Lines$trt == "Thinning and Prescribed"])
+table(Engaged_Lines$stat[Engaged_Lines$trt == "Prescribed only"])
+table(Engaged_Lines$stat[Engaged_Lines$trt == "Neither"])
+
+mat <- matrix(c(nrow(Engaged_Lines[Engaged_Lines$stat == "EH" & Engaged_Lines$trt == "Thinning only",]),
+                nrow(Engaged_Lines[Engaged_Lines$stat == "EF" & Engaged_Lines$trt == "Thinning only",]),
+                nrow(Engaged_Lines[Engaged_Lines$stat == "EH" & Engaged_Lines$trt == "Prescribed only",]),
+                nrow(Engaged_Lines[Engaged_Lines$stat == "EF" & Engaged_Lines$trt == "Prescribed only",]),
+                nrow(Engaged_Lines[Engaged_Lines$stat == "EH" & Engaged_Lines$trt == "Thinning and Prescribed",]),
+                nrow(Engaged_Lines[Engaged_Lines$stat == "EF" & Engaged_Lines$trt == "Thinning and Prescribed",]),
+                nrow(Engaged_Lines[Engaged_Lines$stat == "EH" & Engaged_Lines$trt == "Neither",]),
+                nrow(Engaged_Lines[Engaged_Lines$stat == "EF" & Engaged_Lines$trt == "Neither",])),
+              nrow = 2, byrow = F)
+
+colnames(mat) <- c("Thin", "Rx", "Thin & Rx","No Trt")
+rownames(mat) <- c("Held", "Failed")
+
+mosaicplot(mat,
+           main = "",
+           las = 1,
+           xlab = "Line Status",
+           ylab = "Treatment")
+
+chisq.test(mat)
+
+m2 <- mat[c(1,2),c(1,4)]
+mosaicplot(m2,
+           main = "",
+           xlab = "Line Status",
+           ylab = "Treatment")
+
+chisq.test(m2)
+fisher.test(m2) ## looks like thinned lines more likely to fail
+
+m3 <- mat[c(1,2),c(2,4)]
+mosaicplot(m3,
+           main = "",
+           xlab = "Line Status",
+           ylab = "Treatment")
+
+chisq.test(m3)
+fisher.test(m3) ## looks like burned lines more likely to fail
+
+m4 <- mat[c(1,2),c(3,4)]
+mosaicplot(m4,
+           main = "",
+           xlab = "Line Status",
+           ylab = "Treatment")
+
+chisq.test(m4)
+fisher.test(m4) ## looks like thinned x burned lines less likely to fail
 
 ## splitting into small and larger fires
 hist(Engaged_Lines$BurnAcre)
-smallfires <- Engaged_Lines[Engaged_Lines$BurnAcre < 10000,]
+Engaged_Lines$BurnHa <- (Engaged_Lines$BurnAcre)/2.471 ## now in ha
+hist(Engaged_Lines$BurnHa[Engaged_Lines$BurnHa < 10000])
+hist(Engaged_Lines$BurnHa)
+
+smallfires <- Engaged_Lines[Engaged_Lines$BurnHa < 10000,]
 smallfires <- smallfires[complete.cases(smallfires$stat),]
-largefires <- Engaged_Lines[Engaged_Lines$BurnAcre >= 10000,]
+largefires <- Engaged_Lines[Engaged_Lines$BurnHa >= 10000,]
 largefires <- largefires[complete.cases(largefires$stat),]
 gc()
 
 ## small fires
-vec <- unique(Engaged_Lines$ecoregion)
+mat <- matrix(c(nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Thinning only",]),
+                nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Thinning only",]),
+                nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Prescribed only",]),
+                nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Prescribed only",]),
+                nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Thinning and Prescribed",]),
+                nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Thinning and Prescribed",]),
+                nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Neither",]),
+                nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Neither",])),
+              nrow = 2, byrow = F)
+
+colnames(mat) <- c("Thin", "Rx", "Thin & Rx","No Trt")
+rownames(mat) <- c("Held", "Failed")
+
+par(mfrow = c(1,2))
+par(mfrow = c(1,1))
+mosaicplot(mat,
+           main = "< 10,000 ha",
+           las = 1,
+           xlab = "Line Status",
+           ylab = "Treatment")
+
+chisq.test(mat)
+
+m2 <- mat[c(1,2),c(1,4)]
+mosaicplot(m2,
+           main = "",
+           xlab = "Line Status",
+           ylab = "Treatment")
+
+chisq.test(m2)
+fisher.test(m2) ## looks like thinned lines more likely to fail
+
+m3 <- mat[c(1,2),c(2,4)]
+mosaicplot(m3,
+           main = "",
+           xlab = "Line Status",
+           ylab = "Treatment")
+
+chisq.test(m3)
+fisher.test(m3) ## looks like burned lines more likely to fail
+
+m4 <- mat[c(1,2),c(3,4)]
+mosaicplot(m4,
+           main = "",
+           xlab = "Line Status",
+           ylab = "Treatment")
+
+chisq.test(m4)
+fisher.test(m4) ## looks like thinned x burned lines less likely to fail
+
+## large fires
+mat <- matrix(c(nrow(largefires[largefires$stat == "EH" & largefires$trt == "Thinning only",]),
+                nrow(largefires[largefires$stat == "EF" & largefires$trt == "Thinning only",]),
+                nrow(largefires[largefires$stat == "EH" & largefires$trt == "Prescribed only",]),
+                nrow(largefires[largefires$stat == "EF" & largefires$trt == "Prescribed only",]),
+                nrow(largefires[largefires$stat == "EH" & largefires$trt == "Thinning and Prescribed",]),
+                nrow(largefires[largefires$stat == "EF" & largefires$trt == "Thinning and Prescribed",]),
+                nrow(largefires[largefires$stat == "EH" & largefires$trt == "Neither",]),
+                nrow(largefires[largefires$stat == "EF" & largefires$trt == "Neither",])),
+              nrow = 2, byrow = F)
+
+colnames(mat) <- c("Thin", "Rx", "Thin & Rx","No Trt")
+rownames(mat) <- c("Held", "Failed")
+
+mosaicplot(mat,
+           main = ">= 10,000 ha",
+           las = 1,
+           xlab = "Line Status",
+           ylab = "Treatment")
+
+chisq.test(mat)
+
+m2 <- mat[c(1,2),c(1,4)]
+mosaicplot(m2,
+           main = "",
+           xlab = "Line Status",
+           ylab = "Treatment")
+
+chisq.test(m2)
+fisher.test(m2) ## looks like thinned lines more likely to fail
+
+m3 <- mat[c(1,2),c(2,4)]
+mosaicplot(m3,
+           main = "",
+           xlab = "Line Status",
+           ylab = "Treatment")
+
+chisq.test(m3)
+fisher.test(m3) ## looks like burned lines more likely to fail
+
+m4 <- mat[c(1,2),c(3,4)]
+mosaicplot(m4,
+           main = "",
+           xlab = "Line Status",
+           ylab = "Treatment")
+
+chisq.test(m4)
+fisher.test(m4) ## looks like thinned x burned lines less likely to fail
+
+
+#### Chi sq. by Ecoregions ####
+## small fires
+vec <- c("SW_Mountains", "BlueMnts", "SouthernRockies","Wasatch","MiddleRockies","EastCascades","SierraNevada","NorthernRockies","Klamath","NorthCascades","Cascades","CoastRange")
 trts <- unique(Engaged_Lines$trt)
 
-est.mat.s <-matrix(nrow = length(vec),
-                 ncol = length(trts))
-rownames(est.mat.s) <- vec
+est.mat.s <-matrix(nrow = length(vec)+1,
+                   ncol = length(trts))
+rownames(est.mat.s) <- c(vec,"total")
 colnames(est.mat.s) <- trts
 
-lwr.mat.s <-matrix(nrow = length(vec),
-                 ncol = length(trts))
-rownames(lwr.mat.s) <- vec
+lwr.mat.s <-matrix(nrow = length(vec)+1,
+                   ncol = length(trts))
+rownames(lwr.mat.s) <- c(vec,"total")
 colnames(lwr.mat.s) <- trts
 
-upr.mat.s <-matrix(nrow = length(vec),
-                 ncol = length(trts))
-rownames(upr.mat.s) <- vec
+upr.mat.s <-matrix(nrow = length(vec)+1,
+                   ncol = length(trts))
+rownames(upr.mat.s) <- c(vec,"total")
 colnames(upr.mat.s) <- trts
 
-p.mat.s <-matrix(nrow = length(vec),
+p.mat.s <-matrix(nrow = length(vec)+1,
                  ncol = length(trts))
-rownames(p.mat.s) <- vec
+rownames(p.mat.s) <- c(vec,"total")
 colnames(p.mat.s) <- trts
+
+mat.list.s <- vector("list",  length = 13)
 
 for(i in 1:length(vec)){
   mat <- matrix(c(nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Neither" & smallfires$ecoregion == vec[i],]),
@@ -2668,6 +2973,7 @@ for(i in 1:length(vec)){
                 nrow = 2, byrow = F)
   colnames(mat) <- trts
   rownames(mat) <- c("EH", "EF")
+  mat.list.s[[i]] <- mat
   for(j in 1:length(trts)){
     m2 <- mat[c(1,2),c(j,1)]
     est.mat.s[i,j] <- fisher.test(m2)$estimate
@@ -2676,27 +2982,48 @@ for(i in 1:length(vec)){
     p.mat.s[i,j] <- fisher.test(m2)$p.value
   }
 }
+mat <- matrix(c(nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Neither",]),
+                nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Neither",]),
+                nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Prescribed only",]),
+                nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Prescribed only",]),
+                nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Thinning only",]),
+                nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Thinning only",]),
+                nrow(smallfires[smallfires$stat == "EH" & smallfires$trt == "Thinning and Prescribed",]),
+                nrow(smallfires[smallfires$stat == "EF" & smallfires$trt == "Thinning and Prescribed",])),
+              nrow = 2, byrow = F)
+colnames(mat) <- trts
+rownames(mat) <- c("EH", "EF")
+mat.list.s[[13]] <- mat
+for(j in 1:length(trts)){
+  m2 <- mat[c(1,2),c(j,1)]
+  est.mat.s[13,j] <- fisher.test(m2)$estimate
+  lwr.mat.s[13,j] <- fisher.test(m2)$conf.int[1]
+  upr.mat.s[13,j] <- fisher.test(m2)$conf.int[2]
+  p.mat.s[13,j] <- fisher.test(m2)$p.value
+}
 
 
 ## large fires
-est.mat.l <-matrix(nrow = length(vec),
+est.mat.l <-matrix(nrow = length(vec)+1,
                    ncol = length(trts))
-rownames(est.mat.l) <- vec
+rownames(est.mat.l) <- c(vec,"total")
 colnames(est.mat.l) <- trts
 
-lwr.mat.l <-matrix(nrow = length(vec),
+lwr.mat.l <-matrix(nrow = length(vec)+1,
                    ncol = length(trts))
-rownames(lwr.mat.l) <- vec
+rownames(lwr.mat.l) <- c(vec,"total")
 colnames(lwr.mat.l) <- trts
 
-upr.mat.l <-matrix(nrow = length(vec),
+upr.mat.l <-matrix(nrow = length(vec)+1,
                    ncol = length(trts))
-rownames(upr.mat.l) <- vec
+rownames(upr.mat.l) <- c(vec,"total")
 colnames(upr.mat.l) <- trts
-p.mat.l <-matrix(nrow = length(vec),
+p.mat.l <-matrix(nrow = length(vec)+1,
                  ncol = length(trts))
-rownames(p.mat.l) <- vec
+rownames(p.mat.l) <- c(vec,"total")
 colnames(p.mat.l) <- trts
+
+mat.list.l <- vector("list",  length = 13)
 
 for(i in 1:length(vec)){
   mat <- matrix(c(nrow(largefires[largefires$stat == "EH" & largefires$trt == "Neither" & largefires$ecoregion == vec[i],]),
@@ -2710,6 +3037,7 @@ for(i in 1:length(vec)){
                 nrow = 2, byrow = F)
   colnames(mat) <- trts
   rownames(mat) <- c("EH", "EF")
+  mat.list.l[[i]] <- mat
   for(j in 1:length(trts)){
     m2 <- mat[c(1,2),c(j,1)]
     est.mat.l[i,j] <- fisher.test(m2)$estimate
@@ -2717,7 +3045,25 @@ for(i in 1:length(vec)){
     upr.mat.l[i,j] <- fisher.test(m2)$conf.int[2]
     p.mat.l[i,j] <- fisher.test(m2)$p.value
   }
-  
+}
+mat <- matrix(c(nrow(largefires[largefires$stat == "EH" & largefires$trt == "Neither",]),
+                nrow(largefires[largefires$stat == "EF" & largefires$trt == "Neither",]),
+                nrow(largefires[largefires$stat == "EH" & largefires$trt == "Prescribed only",]),
+                nrow(largefires[largefires$stat == "EF" & largefires$trt == "Prescribed only",]),
+                nrow(largefires[largefires$stat == "EH" & largefires$trt == "Thinning only",]),
+                nrow(largefires[largefires$stat == "EF" & largefires$trt == "Thinning only",]),
+                nrow(largefires[largefires$stat == "EH" & largefires$trt == "Thinning and Prescribed",]),
+                nrow(largefires[largefires$stat == "EF" & largefires$trt == "Thinning and Prescribed",])),
+              nrow = 2, byrow = F)
+colnames(mat) <- trts
+rownames(mat) <- c("EH", "EF")
+mat.list.l[[13]] <- mat
+for(j in 1:length(trts)){
+  m2 <- mat[c(1,2),c(j,1)]
+  est.mat.l[13,j] <- fisher.test(m2)$estimate
+  lwr.mat.l[13,j] <- fisher.test(m2)$conf.int[1]
+  upr.mat.l[13,j] <- fisher.test(m2)$conf.int[2]
+  p.mat.l[13,j] <- fisher.test(m2)$p.value
 }
 
 # upr.mat.s[upr.mat.s == Inf] <- NA
@@ -2730,195 +3076,258 @@ for(i in 1:length(vec)){
 max(upr.mat.s[which(p.mat.s[,j] < 0.05),j])+0.5
 min(lwr.mat.s[which(p.mat.s[,j] < 0.05),j])-0.5
 
-## plotting small fires first
-par(oma = c(0,3,0,0))
+mat.list.l
+mat.list.s
+
+
+## small fires
+pal1 <- turbo(12, alpha = 0.2)
+pal1 <- c(rev(pal1),rgb(0,0,0, alpha = 0.2))
+pal2 <- turbo(12, alpha = 1)
+pal2 <- c(rev(pal2), "black")
+eco.names <- c("SW Mtns", "Blue Mtns", "S Rocky Mtns", "Wasatch", "Middle Rocky Mtns", "E Cascades", "Sierra Nevada", "N Rocky Mtns", 
+               "Klamath", "N Cascades", "Cascades", "Coastal Range", "Total")
+
+par(mfrow = c(2,2),oma = c(0, 6, 0, 0))
+# par(mfrow = c(1,1),oma = c(0, 6, 0, 0))
 
 ## Thinning
 j <- 3
-plot(x = c(min(lwr.mat.s[which(p.mat.s[,j] < 0.05),j])-0.5:max(upr.mat.s[which(p.mat.s[,j] < 0.05),j])+0.5),
-     ylim = c(0,12),
+plot(y = c(0:14),
+     x = rep(0,length(c(0:14))),
      xlim = c(min(lwr.mat.s[which(p.mat.s[,j] < 0.05),j])-0.5,max(upr.mat.s[which(p.mat.s[,j] < 0.05),j])+0.5),
      las = 1,
-     main = trts[j],
+     main = "Thinning",
      cex.axis = 1.5,
      xlab = "",
      type = "n",
      yaxt = "n",
-     ylab = "") ## ecoregion
-text(y = 1:length(vec),
-     x = -4.5,
-     labels = vec,
+     ylab = "")
+mtext("Odds Ratio of Held Lines on Treatment", side = 1, line = 2.5, cex = 1.2)
+text(x = par("usr")[3]+(par("usr")[3]*1.5),
+     y = 1:13,
+     labels = eco.names,
+     col = pal2,
+     adj = 1,
      xpd = NA,
-     srt = 0,      ## Rotate the labels by 35 degrees.
-     cex = 1)
+     srt = 0,      ## Rotate the labels by 0 degrees.
+     cex = 1.2)
 abline(v = 1, lty = 2)
-for(i in 1:length(vec)){
-  points(x = ifelse(p.mat.s[i,j] < 0.05,est.mat.s[i,j],NA),
+for(i in 1:13){
+  points(x = est.mat.s[i,j],
          y = i,
-         col = "black",
-         cex = 0.5,
-         pch = 16)
-  segments(y0 = i, x0 = ifelse(p.mat.s[i,j] < 0.05,lwr.mat.s[i,j],NA), 
-           y1 = i, x1 = ifelse(p.mat.s[i,j] < 0.05,upr.mat.s[i,j],NA), 
-           col = "black",
-           lwd = 1.5)
+         col = pal2[i],
+         cex = 1,
+         pch = ifelse(p.mat.s[i,j] < 0.05,16,1))
+  segments(y0 = i, x0 = lwr.mat.s[i,j], 
+           y1 = i, x1 = upr.mat.s[i,j], 
+           col = pal2[i],
+           lwd = 1.5,
+           lty = ifelse(p.mat.s[i,j] < 0.05,1,3))
+  # text(y = i, x = max(upr.mat.s[which(p.mat.s[,j] < 0.05),j]) + 1.5, paste(mat.list.s[[i]][1,j],mat.list.s[[i]][2,j], sep = ", "), cex = 1, col = pal2[i])
 }
+# text(y = 14,max(upr.mat.s[which(p.mat.s[,j] < 0.05),j]) + 1.5, "EH, EF")
 
 ## Rx Fire
 j <- 2
-plot(x = c(min(lwr.mat.s[which(p.mat.s[,j] < 0.05),j])-0.5:max(upr.mat.s[which(p.mat.s[,j] < 0.05),j])+0.5),
-     ylim = c(0,12),
+plot(y = c(0:14),
+     x = rep(0,length(c(0:14))),
      xlim = c(min(lwr.mat.s[which(p.mat.s[,j] < 0.05),j])-0.5,max(upr.mat.s[which(p.mat.s[,j] < 0.05),j])+0.5),
      las = 1,
-     main = trts[j],
+     main = "Rx Fire",
      cex.axis = 1.5,
      xlab = "",
      type = "n",
      yaxt = "n",
-     ylab = "") ## ecoregion
-text(y = 1:length(vec),
-     x = -1.5,
-     labels = vec,
-     xpd = NA,
-     srt = 0,      ## Rotate the labels by 35 degrees.
-     cex = 1)
+     ylab = "")
+mtext("Odds Ratio of Held Lines on Treatment", side = 1, line = 2.5, cex = 1.2)
 abline(v = 1, lty = 2)
-for(i in 1:length(vec)){
-  points(x = ifelse(p.mat.s[i,j] < 0.05,est.mat.s[i,j],NA),
+for(i in 1:13){
+  points(x = est.mat.s[i,j],
          y = i,
-         col = "black",
-         cex = 0.5,
-         pch = 16)
-  segments(y0 = i, x0 = ifelse(p.mat.s[i,j] < 0.05,lwr.mat.s[i,j],NA), 
-           y1 = i, x1 = ifelse(p.mat.s[i,j] < 0.05,upr.mat.s[i,j],NA), 
-           col = "black",
-           lwd = 1.5)
+         col = pal2[i],
+         cex = 1,
+         pch = ifelse(p.mat.s[i,j] < 0.05,16,1))
+  segments(y0 = i, x0 = lwr.mat.s[i,j], 
+           y1 = i, x1 = upr.mat.s[i,j], 
+           col = pal2[i],
+           lwd = 1.5,
+           lty = ifelse(p.mat.s[i,j] < 0.05,1,3))
+  # text(y = i, x = max(upr.mat.s[which(p.mat.s[,j] < 0.05),j]) + 1, paste(mat.list.s[[i]][1,j],mat.list.s[[i]][2,j], sep = ", "), cex = 1, col = pal2[i])
 }
+# text(y = 14,max(upr.mat.s[which(p.mat.s[,j] < 0.05),j]) + 1, "EH, EF")
 
-## Thinning + Rx
+## Thin and Rx Fire
 j <- 4
-plot(x = c(min(lwr.mat.s[which(p.mat.s[,j] < 0.05),j])-0.5:max(upr.mat.s[which(p.mat.s[,j] < 0.05),j])+0.5),
-     ylim = c(0,12),
-     xlim = c(min(lwr.mat.s[which(p.mat.s[,j] < 0.05),j])-0.5,max(upr.mat.s[which(p.mat.s[,j] < 0.05),j])+0.5),
+plot(y = c(0:14),
+     x = rep(0,length(c(0:14))),
+     xlim = c(min(lwr.mat.s[which(p.mat.s[,j] < 0.05),j])-0.5,7.5),
      las = 1,
-     main = trts[j],
+     main = "Thin + Rx",
      cex.axis = 1.5,
      xlab = "",
      type = "n",
      yaxt = "n",
-     ylab = "") ## ecoregion
-text(y = 1:length(vec),
-     x = -2,
-     labels = vec,
+     ylab = "")
+mtext("Odds Ratio of Held Lines on Treatment", side = 1, line = 2.5, cex = 1.2)
+text(x = par("usr")[3]+(par("usr")[3]*0.3),
+     y = 1:13,
+     labels = eco.names,
+     col = pal2,
+     adj = 1,
      xpd = NA,
-     srt = 0,      ## Rotate the labels by 35 degrees.
-     cex = 1)
+     srt = 0,      ## Rotate the labels by 0 degrees.
+     cex = 1.2)
 abline(v = 1, lty = 2)
-for(i in 1:length(vec)){
-  points(x = ifelse(p.mat.s[i,j] < 0.05,est.mat.s[i,j],NA),
+for(i in 1:13){
+  points(x = est.mat.s[i,j],
          y = i,
-         col = "black",
-         cex = 0.5,
-         pch = 16)
-  segments(y0 = i, x0 = ifelse(p.mat.s[i,j] < 0.05,lwr.mat.s[i,j],NA), 
-           y1 = i, x1 = ifelse(p.mat.s[i,j] < 0.05,upr.mat.s[i,j],NA), 
-           col = "black",
-           lwd = 1.5)
+         col = pal2[i],
+         cex = 1,
+         pch = ifelse(p.mat.s[i,j] < 0.05,16,1))
+  segments(y0 = i, x0 = lwr.mat.s[i,j], 
+           y1 = i, x1 = upr.mat.s[i,j], 
+           col = pal2[i],
+           lwd = 1.5,
+           lty = ifelse(p.mat.s[i,j] < 0.05,1,3))
+  # text(y = i, x = max(upr.mat.s[which(p.mat.s[,j] < 0.05),j]) + 1, paste(mat.list.s[[i]][1,j],mat.list.s[[i]][2,j], sep = ", "), cex = 1, col = pal2[i])
 }
+# text(y = 14, max(upr.mat.s[which(p.mat.s[,j] < 0.05),j]) + 1, "EH, EF")
+
 
 ## large fires
-upr.mat.l[upr.mat.l == Inf] <- 100 ## making infinite valus very high
+par(mfrow = c(2,2),oma = c(0, 6, 0, 0))
+# par(mfrow = c(1,1),oma = c(0, 6, 0, 0))
 
 ## Thinning
 j <- 3
-plot(x = c(min(lwr.mat.l[which(p.mat.l[,j] < 0.05),j])-0.5:max(upr.mat.l[which(p.mat.l[,j] < 0.05),j])+0.5),
-     ylim = c(0,12),
-     xlim = c(min(lwr.mat.l[which(p.mat.l[,j] < 0.05),j])-0.5,max(upr.mat.l[which(p.mat.l[,j] < 0.05),j])+0.5),
+plot(y = c(0:14),
+     x = rep(0,length(c(0:14))),
+     # xlim = c(min(lwr.mat.l[which(p.mat.l[,j] < 0.05),j])-0.5,max(upr.mat.l[which(p.mat.l[,j] < 0.05),j])+0.5),
+     xlim = c(min(lwr.mat.l[which(p.mat.l[,j] < 0.05),j])-0.5,3.5),
      las = 1,
-     main = trts[j],
+     main = "Thinning",
      cex.axis = 1.5,
      xlab = "",
      type = "n",
      yaxt = "n",
-     ylab = "") ## ecoregion
-text(y = 1:length(vec),
-     x = -25,
-     labels = vec,
+     ylab = "")
+mtext("Odds Ratio of Held Lines on Treatment", side = 1, line = 2.5, cex = 1.2)
+text(x = par("usr")[3]+0.1,
+     y = 1:13,
+     labels = eco.names,
+     col = pal2,
+     adj = 1,
      xpd = NA,
-     srt = 0,      ## Rotate the labels by 35 degrees.
-     cex = 1)
+     srt = 0,      ## Rotate the labels by 0 degrees.
+     cex = 1.2)
 abline(v = 1, lty = 2)
-for(i in 1:length(vec)){
-  points(x = ifelse(p.mat.l[i,j] < 0.05,est.mat.l[i,j],NA),
+for(i in 1:13){
+  points(x = est.mat.l[i,j],
          y = i,
-         col = "black",
-         cex = 0.5,
-         pch = 16)
-  segments(y0 = i, x0 = ifelse(p.mat.l[i,j] < 0.05,lwr.mat.l[i,j],NA), 
-           y1 = i, x1 = ifelse(p.mat.l[i,j] < 0.05,upr.mat.l[i,j],NA), 
-           col = "black",
-           lwd = 1.5)
+         col = pal2[i],
+         cex = 1,
+         pch = ifelse(p.mat.l[i,j] < 0.05,16,1))
+  segments(y0 = i, x0 = lwr.mat.l[i,j], 
+           y1 = i, x1 = upr.mat.l[i,j], 
+           col = pal2[i],
+           lwd = 1.5,
+           lty = ifelse(p.mat.l[i,j] < 0.05,1,3))
+  # text(y = i, x = max(upr.mat.s[which(p.mat.s[,j] < 0.05),j]) + 1.5, paste(mat.list.s[[i]][1,j],mat.list.s[[i]][2,j], sep = ", "), cex = 1, col = pal2[i])
 }
+# text(y = 14,max(upr.mat.s[which(p.mat.s[,j] < 0.05),j]) + 1.5, "EH, EF")
 
-## Rx
+## Rx Fire
 j <- 2
-plot(x = c(min(lwr.mat.l[which(p.mat.l[,j] < 0.05),j])-0.5:max(upr.mat.l[which(p.mat.l[,j] < 0.05),j])+0.5),
-     ylim = c(0,12),
-     xlim = c(min(lwr.mat.l[which(p.mat.l[,j] < 0.05),j])-0.5,max(upr.mat.l[which(p.mat.l[,j] < 0.05),j])+0.5),
+plot(y = c(0:14),
+     x = rep(0,length(c(0:14))),
+     # xlim = c(min(lwr.mat.l[which(p.mat.l[,j] < 0.05),j])-0.5,max(upr.mat.l[which(p.mat.l[,j] < 0.05),j])+0.5),
+     xlim = c(min(lwr.mat.l[which(p.mat.l[,j] < 0.05),j])-0.5,6),
      las = 1,
-     main = trts[j],
+     main = "Rx Fire",
      cex.axis = 1.5,
      xlab = "",
      type = "n",
      yaxt = "n",
-     ylab = "") ## ecoregion
-text(y = 1:length(vec),
-     x = -200,
-     labels = vec,
-     xpd = NA,
-     srt = 0,      ## Rotate the labels by 35 degrees.
-     cex = 1)
+     ylab = "")
+mtext("Odds Ratio of Held Lines on Treatment", side = 1, line = 2.5, cex = 1.2)
 abline(v = 1, lty = 2)
-for(i in 1:length(vec)){
-  points(x = ifelse(p.mat.l[i,j] < 0.05,est.mat.l[i,j],NA),
+for(i in 1:13){
+  points(x = est.mat.l[i,j],
          y = i,
-         col = "black",
-         cex = 0.5,
-         pch = 16)
-  segments(y0 = i, x0 = ifelse(p.mat.l[i,j] < 0.05,lwr.mat.l[i,j],NA), 
-           y1 = i, x1 = ifelse(p.mat.l[i,j] < 0.05,upr.mat.l[i,j],NA), 
-           col = "black",
-           lwd = 1.5)
+         col = pal2[i],
+         cex = 1,
+         pch = ifelse(p.mat.l[i,j] < 0.05,16,1))
+  segments(y0 = i, x0 = lwr.mat.l[i,j], 
+           y1 = i, x1 = upr.mat.l[i,j], 
+           col = pal2[i],
+           lwd = 1.5,
+           lty = ifelse(p.mat.l[i,j] < 0.05,1,3))
+  # text(y = i, x = max(upr.mat.s[which(p.mat.s[,j] < 0.05),j]) + 1, paste(mat.list.s[[i]][1,j],mat.list.s[[i]][2,j], sep = ", "), cex = 1, col = pal2[i])
 }
+# text(y = 14,max(upr.mat.s[which(p.mat.s[,j] < 0.05),j]) + 1, "EH, EF")
 
-## Both
+# ## Rx split plot
+# plot(y = c(0:2),
+#      x = rep(0,length(c(0:2))),
+#      xlim = c(min(lwr.mat.l[which(p.mat.l[,j] < 0.05),j])-0.5,max(upr.mat.l[which(p.mat.l[,j] < 0.05),j])+0.5),
+#      las = 1,
+#      main = "",
+#      cex.axis = 1,
+#      xlab = "",
+#      type = "n",
+#      yaxt = "n",
+#      ylab = "")
+# points(x = est.mat.l[2,j],
+#        y = 0,
+#        col = pal2[2],
+#        cex = 1,
+#        pch = ifelse(p.mat.l[2,j] < 0.05,16,1))
+# segments(y0 = 0, x0 = lwr.mat.l[2,j],
+#          y1 = 0, x1 = upr.mat.l[2,j],
+#          col = pal2[2],
+#          lwd = 1.5,
+#          lty = ifelse(p.mat.l[2,j] < 0.05,1,3))
+# 
+
+## Thin and Rx Fire
 j <- 4
-plot(x = c(min(lwr.mat.l[which(p.mat.l[,j] < 0.05),j])-0.5:max(upr.mat.l[which(p.mat.l[,j] < 0.05),j])+0.5),
-     ylim = c(0,12),
-     xlim = c(min(lwr.mat.l[which(p.mat.l[,j] < 0.05),j])-0.5,max(upr.mat.l[which(p.mat.l[,j] < 0.05),j])+0.5),
+plot(y = c(0:14),
+     x = rep(0,length(c(0:14))),
+     xlim = c(min(lwr.mat.l[which(p.mat.l[,j] < 0.05),j])-0.5,5),
      las = 1,
-     main = trts[j],
+     main = "Thin + Rx",
      cex.axis = 1.5,
      xlab = "",
      type = "n",
      yaxt = "n",
-     ylab = "") ## ecoregion
-text(y = 1:length(vec),
-     x = -50,
-     labels = vec,
+     ylab = "")
+mtext("Odds Ratio of Held Lines on Treatment", side = 1, line = 2.5, cex = 1.2)
+text(x = par("usr")[3]+0.2,
+     y = 1:13,
+     labels = eco.names,
+     col = pal2,
+     adj = 1,
      xpd = NA,
-     srt = 0,      ## Rotate the labels by 35 degrees.
-     cex = 1)
+     srt = 0,      ## Rotate the labels by 0 degrees.
+     cex = 1.2)
 abline(v = 1, lty = 2)
-for(i in 1:length(vec)){
-  points(x = ifelse(p.mat.l[i,j] < 0.05,est.mat.l[i,j],NA),
+for(i in 1:13){
+  points(x = est.mat.l[i,j],
          y = i,
-         col = "black",
-         cex = 0.5,
-         pch = 16)
-  segments(y0 = i, x0 = ifelse(p.mat.l[i,j] < 0.05,lwr.mat.l[i,j],NA), 
-           y1 = i, x1 = ifelse(p.mat.l[i,j] < 0.05,upr.mat.l[i,j],NA), 
-           col = "black",
-           lwd = 1.5)
+         col = pal2[i],
+         cex = 1,
+         pch = ifelse(p.mat.l[i,j] < 0.05,16,1))
+  segments(y0 = i, x0 = lwr.mat.l[i,j], 
+           y1 = i, x1 = upr.mat.l[i,j], 
+           col = pal2[i],
+           lwd = 1.5,
+           lty = ifelse(p.mat.l[i,j] < 0.05,1,3))
+  # text(y = i, x = max(upr.mat.s[which(p.mat.s[,j] < 0.05),j]) + 1, paste(mat.list.s[[i]][1,j],mat.list.s[[i]][2,j], sep = ", "), cex = 1, col = pal2[i])
 }
+# text(y = 14, max(upr.mat.s[which(p.mat.s[,j] < 0.05),j]) + 1, "EH, EF")
 
+mat.list.s
+mat.list.l
+
+upr.mat.l
