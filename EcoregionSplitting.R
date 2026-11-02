@@ -31,7 +31,7 @@ for (i in 1:length(temp)) {
   # Create filename using the object name
   
   filename <- paste0("Engaged_Lines_", obj.names[i], ".csv")
-  write.csv(X_Lines_df, paste0("./Geographic Subsets/Ecoregions/",filename))
+  # write.csv(X_Lines_df, paste0("./Geographic Subsets/Ecoregions/",filename))
   
   # Optional: print progress
   cat("Processed:", obj.names[i], "\n")
